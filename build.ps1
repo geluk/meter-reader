@@ -1,0 +1,1 @@
+cargo objcopy --release -- -O ihex teensy-test.hex

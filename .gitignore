@@ -1,0 +1,12 @@
+# Artifacts
+/target
+**/*.rs.bk
+/out
+teensy-test.hex
+
+# Cargo
+.cargo/
+.cargo-ok
+
+# Editor files
+.vscode/

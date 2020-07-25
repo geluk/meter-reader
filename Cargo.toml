@@ -1,0 +1,31 @@
+[package]
+name = "teensy-experiments"
+version = "0.1.0"
+authors = ["Johan <johan@geluk.io>"]
+edition = "2018"
+
+[dependencies]
+panic-halt = "0.2.0"
+cortex-m = "0.6.2"
+embedded-hal = "0.2.3"
+enc28j60 = "0.2.1"
+log = "0.4.11"
+
+[dependencies.jnet]
+git = "https://github.com/japaric/jnet"
+branch = "master"
+
+[dependencies.teensy4-bsp]
+git = "https://github.com/mciantyre/teensy4-rs.git"
+branch = "master"
+
+# Patch `cortex-m-rt` for reasons described here:
+# https://github.com/mciantyre/teensy4-rs#runtime
+[patch.crates-io.cortex-m-rt]
+git = "https://github.com/mciantyre/teensy4-rs"
+branch = "master"
+
+# Don't optimize build dependencies, like proc macros.
+# Helps with build times.
+[profile.release.build-override]
+opt-level = 0
