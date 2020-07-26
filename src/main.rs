@@ -5,7 +5,7 @@ extern crate panic_halt;
 
 use embedded_hal::blocking::spi::Write;
 #[allow(deprecated)] // Required because enc28j60 depends on v1.
-use embedded_hal::digital::v1::OutputPin;
+use embedded_hal::digital::v1::{OutputPin};
 
 use bsp::hal;
 use bsp::rt;
@@ -24,7 +24,12 @@ fn main() -> ! {
     // Take control of the peripherals.
     let mut per = bsp::Peripherals::take().unwrap();
 
-    let bsp::Peripherals { usb, spi, mut systick, .. } = per;
+    let bsp::Peripherals {
+        usb,
+        spi,
+        mut systick,
+        ..
+    } = per;
 
     // Enable serial USB logging.
     usb.init(Default::default());
@@ -96,10 +101,9 @@ where
 
 // ENC28J60 support (WIP)
 #[allow(deprecated)] // Required because enc28j60 depends on v1.
-fn net_setup<Mod, Delay>(delay: &mut Delay, spi: hal::spi::SPI<Mod>)
+fn net_setup<Mod>(delay: &mut bsp::SysTick, spi: hal::spi::SPI<Mod>)
 where
     Mod: hal::iomuxc::spi::module::Module,
-    Delay: embedded_hal::blocking::delay::DelayMs<u8>,
 {
     struct DummyCS;
     impl OutputPin for DummyCS {
@@ -108,6 +112,7 @@ where
     }
     let ncs = DummyCS;
 
+    log::info!("Setting up ENC28J60.");
     let enc28j60 = enc28j60::Enc28j60::new(
         spi,
         ncs,
@@ -117,13 +122,36 @@ where
         7 * KB,
         MAC.0,
     );
+    log::info!("Setup done.");
     match enc28j60 {
-        Ok(_enc) => {
+        Ok(mut enc) => {
             log::info!("ENC ready!");
+            return;
+            loop{
+                get_packets(&mut enc);
+                delay.delay(2000);
+            }
         }
         Err(err) => {
-            log::info!("Failed to initialise ENC: {:?}", err);
+            log::warn!("Failed to initialise ENC: {:?}", err);
             return;
         }
     };
+}
+
+fn get_packets<NCS, INT, RESET, Mod>(enc: &mut enc28j60::Enc28j60<hal::spi::SPI<Mod>, NCS, INT, RESET>)
+where
+    NCS: OutputPin,
+    INT: enc28j60::IntPin,
+    RESET: enc28j60::ResetPin,
+    Mod: hal::iomuxc::spi::module::Module,
+{
+    match enc.pending_packets() {
+        Ok(pkt) => {
+            log::info!("{} packets ready to be decoded.", pkt);
+        }
+        Err(err) => {
+            log::warn!("Failed to get packet count from ENC: {:?}", err);
+        }
+    }
 }
