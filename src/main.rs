@@ -24,9 +24,7 @@ fn main() -> ! {
     // Take control of the peripherals.
     let mut per = bsp::Peripherals::take().unwrap();
 
-    let usb = per.usb;
-    let spi = per.spi;
-    let mut systick = per.systick;
+    let bsp::Peripherals { usb, spi, mut systick, .. } = per;
 
     // Enable serial USB logging.
     usb.init(Default::default());
