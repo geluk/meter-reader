@@ -24,8 +24,12 @@ fn main() -> ! {
     // Take control of the peripherals.
     let mut per = bsp::Peripherals::take().unwrap();
 
+    let usb = per.usb;
+    let spi = per.spi;
+    let mut systick = per.systick;
+
     // Enable serial USB logging.
-    per.usb.init(Default::default());
+    usb.init(Default::default());
 
     // Set the default clock speed (500MHz).
     per.ccm
@@ -33,7 +37,7 @@ fn main() -> ! {
         .set_arm_clock(hal::ccm::PLL1::ARM_HZ, &mut per.ccm.handle, &mut per.dcdc);
 
     // Configure the SPI clocks. We'll only use SPI4 for now.
-    let (_, _, _, spi4_builder) = per.spi.clock(
+    let (_, _, _, spi4_builder) = spi.clock(
         &mut per.ccm.handle,
         hal::ccm::spi::ClockSelect::Pll2,
         hal::ccm::spi::PrescalarSelect::LPSPI_PODF_5,
@@ -46,7 +50,7 @@ fn main() -> ! {
         per.pins.p13.alt3(),
     );
 
-    per.systick.delay(5000);
+    systick.delay(5000);
 
     // Set SPI clock speed.
     match spi4.set_clock_speed(hal::spi::ClockSpeed(SPI_BAUD_RATE_HZ)) {
@@ -65,14 +69,16 @@ fn main() -> ! {
     //spi4.enable_chip_select_0(per.pins.p10.alt3());
 
     //spi_test(per, spi4);
-    net_setup(&mut per, spi4);
+    net_setup(&mut systick, spi4);
 
     loop {}
 }
 
-fn spi_test<Mod>(per: &mut bsp::Peripherals, mut spi: hal::spi::SPI<Mod>)
+#[allow(unused)]
+fn spi_test<Mod, Delay>(delay: &mut Delay, mut spi: hal::spi::SPI<Mod>)
 where
     Mod: hal::iomuxc::spi::module::Module,
+    Delay: embedded_hal::blocking::delay::DelayMs<u16>,
 {
     // Dump some test data.
     loop {
@@ -86,15 +92,16 @@ where
                 }
             };
         }
-        per.systick.delay(500);
+        delay.delay_ms(500);
     }
 }
 
 // ENC28J60 support (WIP)
 #[allow(deprecated)] // Required because enc28j60 depends on v1.
-fn net_setup<Mod>(per: &mut bsp::Peripherals, spi: hal::spi::SPI<Mod>)
+fn net_setup<Mod, Delay>(delay: &mut Delay, spi: hal::spi::SPI<Mod>)
 where
     Mod: hal::iomuxc::spi::module::Module,
+    Delay: embedded_hal::blocking::delay::DelayMs<u8>,
 {
     struct DummyCS;
     impl OutputPin for DummyCS {
@@ -108,7 +115,7 @@ where
         ncs,
         enc28j60::Unconnected, // Interrupt
         enc28j60::Unconnected, // Reset
-        &mut per.systick,
+        delay,
         7 * KB,
         MAC.0,
     );
