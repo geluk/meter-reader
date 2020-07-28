@@ -71,8 +71,8 @@ fn main() -> ! {
     // to the enc280j60, so we'll pass it a dummy instead.
     //spi4.enable_chip_select_0(per.pins.p10.alt3());
 
-    //spi_test(per, spi4);
-    net_setup(&mut systick, spi4);
+    spi_test(&mut systick, spi4);
+    //net_setup(&mut systick, spi4);
 
     loop {}
 }
@@ -100,7 +100,7 @@ where
 }
 
 // ENC28J60 support (WIP)
-#[allow(deprecated)] // Required because enc28j60 depends on v1.
+#[allow(deprecated, unused)] // 'deprecated' required because enc28j60 depends on v1.
 fn net_setup<Mod>(delay: &mut bsp::SysTick, spi: hal::spi::SPI<Mod>)
 where
     Mod: hal::iomuxc::spi::module::Module,
@@ -139,6 +139,7 @@ where
     };
 }
 
+#[allow(deprecated)]
 fn get_packets<NCS, INT, RESET, Mod>(enc: &mut enc28j60::Enc28j60<hal::spi::SPI<Mod>, NCS, INT, RESET>)
 where
     NCS: OutputPin,
