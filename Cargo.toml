@@ -9,8 +9,12 @@ panic-halt = "0.2.0"
 cortex-m = "0.6.2"
 cortex-m-rt = "0.6.13"
 embedded-hal = "0.2.3"
-enc28j60 = "0.2.1"
 log = "0.4.11"
+
+[dependencies.enc28j60]
+path = "../enc28j60"
+#git = "https://github.com/geluk/enc28j60"
+#branch = "master"
 
 [dependencies.jnet]
 git = "https://github.com/japaric/jnet"

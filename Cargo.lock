@@ -109,12 +109,11 @@ dependencies = [
 [[package]]
 name = "enc28j60"
 version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "48c49dc5c4d6d372288d7300607ed3829f12104f1cb206730c49b3c9394106e1"
 dependencies = [
  "byteorder",
  "cast",
  "embedded-hal",
+ "log",
 ]
 
 [[package]]
