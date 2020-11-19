@@ -11,14 +11,16 @@ cortex-m-rt = "0.6.13"
 embedded-hal = "0.2.3"
 log = "0.4.11"
 
+[dependencies.smoltcp]
+git = "https://github.com/smoltcp-rs/smoltcp"
+branch = "master"
+default-features = false
+features = ["ethernet", "proto-ipv4", "proto-dhcpv4", "socket-raw", "socket-tcp", "socket-icmp"]
+
 [dependencies.enc28j60]
 path = "../enc28j60"
 #git = "https://github.com/geluk/enc28j60"
 #branch = "master"
-
-[dependencies.jnet]
-git = "https://github.com/japaric/jnet"
-branch = "master"
 
 [dependencies.teensy4-bsp]
 git = "https://github.com/mciantyre/teensy4-rs.git"
