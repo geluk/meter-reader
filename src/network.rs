@@ -14,9 +14,7 @@ use smoltcp::time::Instant;
 use smoltcp::Result;
 use teensy4_bsp::SysTick;
 
-const KB: u16 = 1024;
-
-const ENC28J60_MTU: usize = 1518;
+const ENC28J60_MTU: usize = enc28j60::MAX_FRAME_LENGTH as usize;
 
 pub trait Driver {
     fn pending_packets(&mut self) -> u8;
@@ -77,7 +75,7 @@ where
         enc28j60::Unconnected, // Interrupt
         rst,
         delay,
-        7 * KB,
+        enc28j60::BUF_SZ - enc28j60::MAX_FRAME_LENGTH,
         addr,
     );
     log::debug!("ENC28J60 setup done.");
