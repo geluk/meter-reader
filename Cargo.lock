@@ -109,11 +109,11 @@ dependencies = [
 [[package]]
 name = "enc28j60"
 version = "0.2.1"
+source = "git+https://github.com/geluk/enc28j60?branch=master#72f6d9bc813669b0da5a358434731d26363c7c9c"
 dependencies = [
  "byteorder",
  "cast",
  "embedded-hal",
- "log",
 ]
 
 [[package]]
@@ -283,7 +283,7 @@ checksum = "388a1df253eca08550bef6c72392cfe7c30914bf41df5269b68cbd6ff8f570a3"
 [[package]]
 name = "smoltcp"
 version = "0.6.0"
-source = "git+https://github.com/smoltcp-rs/smoltcp#f25a531987c83652433e76e9dbab1b41daa98f2a"
+source = "git+https://github.com/smoltcp-rs/smoltcp?branch=master#f25a531987c83652433e76e9dbab1b41daa98f2a"
 dependencies = [
  "bitflags",
  "byteorder",

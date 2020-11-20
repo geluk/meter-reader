@@ -18,9 +18,8 @@ default-features = false
 features = ["ethernet", "proto-ipv4", "proto-dhcpv4", "socket-raw", "socket-tcp", "socket-icmp"]
 
 [dependencies.enc28j60]
-path = "../enc28j60"
-#git = "https://github.com/geluk/enc28j60"
-#branch = "master"
+git = "https://github.com/geluk/enc28j60"
+branch = "master"
 
 [dependencies.teensy4-bsp]
 git = "https://github.com/mciantyre/teensy4-rs.git"
