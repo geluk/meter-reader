@@ -7,6 +7,16 @@ mod network;
 
 extern crate panic_halt;
 
+use smoltcp::time::Instant;
+use smoltcp::socket::SocketSet;
+use smoltcp::socket::TcpSocketBuffer;
+use smoltcp::socket::TcpSocket;
+use smoltcp::wire::IpCidr;
+use smoltcp::wire::EthernetAddress;
+use smoltcp::iface::EthernetInterfaceBuilder;
+use smoltcp::iface::NeighborCache;
+use core::str::FromStr;
+use smoltcp::wire::IpAddress;
 use bsp::{
     hal::{self, gpio::GPIO},
     t40, usb, SysTick,
@@ -18,6 +28,7 @@ use hal::ccm::{
 };
 use teensy4_bsp as bsp;
 
+const ETH_ADDR: [u8; 6] = [0x22, 0x22, 0x00, 0x00, 0x00, 0x00];
 const SPI_BAUD_RATE_HZ: u32 = 16_000_000;
 
 #[cortex_m_rt::entry]
@@ -68,10 +79,80 @@ fn main() -> ! {
     ncs.set_fast(true);
     let ncs = OldOutputPin::new(ncs);
 
-    let mut driver = network::create_enc28j60(&mut systick, spi4, ncs, rst);
-    get_packets(&mut driver);
+    let driver = network::create_enc28j60(&mut systick, spi4, ncs, rst, ETH_ADDR);
+    let device = network::Enc28j60Phy::new(driver);
+    let mut address = [IpCidr::new(IpAddress::v4(10, 111, 0, 1), 24)];
+    let port = 9494;
 
-    halt!();
+    let mut cache_backing_store = [None; 8];
+    let neigh = NeighborCache::new(&mut cache_backing_store[..]);
+    let eth_addr = EthernetAddress(ETH_ADDR);
+
+    let mut iface = EthernetInterfaceBuilder::new(device)
+        .ethernet_addr(eth_addr)
+        .neighbor_cache(neigh)
+        .ip_addrs(&mut address[..])
+        .finalize();
+
+    let mut tcp_rx_buffer = [0u8; 64];
+    let mut tcp_tx_buffer = [0u8; 64];
+    let tcp_rx_buffer = TcpSocketBuffer::new(&mut tcp_rx_buffer[..]);
+    let tcp_tx_buffer = TcpSocketBuffer::new(&mut tcp_tx_buffer[..]);
+
+    let socket = TcpSocket::new(tcp_rx_buffer, tcp_tx_buffer);
+    let mut socket_buffer = [None; 1];
+    let mut sockets = SocketSet::new(&mut socket_buffer[..]);
+    let tcp_handle = sockets.add(socket);
+
+    let mut tcp_active = false;
+
+    {
+        let mut socket = sockets.get::<TcpSocket>(tcp_handle);
+        socket
+            .connect((IpAddress::v4(10, 111, 0, 2), port), 49500)
+            .unwrap();
+    }
+
+    let mut millis = 0;
+    let mut sent = false;
+    loop {
+        let timestamp = Instant::from_millis(millis);
+        match interface.poll(&mut sockets, timestamp) {
+            Ok(processed) => {
+                if processed {
+                    log::trace!("Processed/emitted new packets during polling");
+                }
+            }
+            Err(e) => {
+                log::warn!("Error during polling: {:?}", e);
+            }
+        }
+        let mut socket = sockets.get::<TcpSocket>(tcp_handle);
+        if socket.is_active() && !tcp_active {
+            let local = socket.local_endpoint();
+            let remote = socket.remote_endpoint();
+            log::debug!("Connected {} -> {}", local, remote);
+        } else if !socket.is_active() && tcp_active {
+            let local = socket.local_endpoint();
+            let remote = socket.remote_endpoint();
+            log::debug!("Disconnected {} -> {}", local, remote);
+        }
+        tcp_active = socket.is_active();
+
+        if socket.can_send() && !sent {
+            log::debug!("Sending data");
+            let data = b"abcdefghijklmnop";
+            socket.send_slice(&data[..]).unwrap();
+            socket.close();
+            sent = true;
+        }
+
+        systick.delay(50);
+        millis += 50;
+        if millis % 1000 == 0 {
+            log::debug!("Still running...");
+        }
+    }
 }
 
 fn get_packets<D: network::Driver>(driver: &mut D) {

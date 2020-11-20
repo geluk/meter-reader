@@ -8,19 +8,22 @@ use embedded_hal::{
     digital::v1::OutputPin,
 };
 use enc28j60::Enc28j60;
+use smoltcp::phy::ChecksumCapabilities;
 use smoltcp::phy::{self, Device, DeviceCapabilities};
 use smoltcp::time::Instant;
 use smoltcp::Result;
-use teensy4_bsp::{hal::gpio, hal::iomuxc::gpio::Pin, SysTick};
+use teensy4_bsp::SysTick;
 
 const KB: u16 = 1024;
+
+const ENC28J60_MTU: usize = 1518;
 
 pub trait Driver {
     fn pending_packets(&mut self) -> u8;
 
     fn receive(&mut self, buffer: &mut [u8]) -> u16;
 
-    fn transmit(&mut self, bytes: &[u8]);
+    fn transmit(&mut self, buffer: &[u8]);
 }
 
 impl<SPI, NCS, INT, RESET, E> Driver for Enc28j60<SPI, NCS, INT, RESET>
@@ -38,12 +41,15 @@ where
 
     #[inline]
     fn receive(&mut self, buffer: &mut [u8]) -> u16 {
-        Enc28j60::receive(self, buffer).unwrap()
+        let recv = Enc28j60::receive(self, buffer).unwrap();
+        log::trace!("> Received {} bytes: {:2x?}", recv, &buffer[0..recv as usize]);
+        recv
     }
 
     #[inline]
-    fn transmit(&mut self, bytes: &[u8]) {
-        Enc28j60::transmit(self, bytes).unwrap()
+    fn transmit(&mut self, buffer: &[u8]) {
+        Enc28j60::transmit(self, buffer).unwrap();
+        log::trace!("> Sent {} bytes: {:2x?}", buffer.len(), buffer);
     }
 }
 
@@ -52,6 +58,7 @@ pub fn create_enc28j60<SPI, PNCS, PRST>(
     spi: SPI,
     ncs: PNCS,
     mut rst: PRST,
+    addr: [u8; 6],
 ) -> Enc28j60<SPI, PNCS, enc28j60::Unconnected, PRST>
 where
     SPI: spi::write::Default<u8> + spi::transfer::Default<u8>,
@@ -63,7 +70,7 @@ where
     rst.set_high();
     delay.delay(1);
 
-    log::info!("Setting up ENC28J60.");
+    log::debug!("Setting up ENC28J60.");
     let enc28j60 = Enc28j60::new(
         spi,
         ncs,
@@ -71,9 +78,9 @@ where
         rst,
         delay,
         7 * KB,
-        [0x22, 0x22, 0, 0, 0, 0],
+        addr,
     );
-    log::info!("Setup done.");
+    log::debug!("ENC28J60 setup done.");
     match enc28j60 {
         Ok(enc) => enc,
         Err(err) => {
@@ -84,22 +91,62 @@ where
 }
 
 pub struct Enc28j60Phy<D: Driver> {
-    rx_buffer: [u8; 1518],
-    tx_buffer: [u8; 1518],
+    rx_buffer: [u8; ENC28J60_MTU],
+    tx_buffer: [u8; ENC28J60_MTU],
     driver: D,
 }
 
 impl<D: Driver> Enc28j60Phy<D> {
-    fn new(driver: D) -> Self {
+    pub fn new(driver: D) -> Self {
         Self {
-            rx_buffer: [0; 1518],
-            tx_buffer: [0; 1518],
+            rx_buffer: [0; ENC28J60_MTU],
+            tx_buffer: [0; ENC28J60_MTU],
             driver,
         }
     }
 }
 
-struct Enc28j60RxToken<'a> {
+impl<'a, D: 'a + Driver> phy::Device<'a> for Enc28j60Phy<D> {
+    type RxToken = Enc28j60RxToken<'a>;
+    type TxToken = Enc28j60TxToken<'a, D>;
+
+    fn capabilities(&self) -> DeviceCapabilities {
+        let mut caps = DeviceCapabilities::default();
+        caps.max_transmission_unit = ENC28J60_MTU;
+        caps.max_burst_size = Some(1);
+        caps.checksum = ChecksumCapabilities::default();
+        caps
+    }
+
+    fn receive(&'a mut self) -> Option<(Self::RxToken, Self::TxToken)> {
+        let pending = self.driver.pending_packets();
+        if pending > 0 {
+            log::trace!("We have {} pending packets", pending);
+            self.driver.receive(&mut self.rx_buffer);
+
+            Some((
+                Enc28j60RxToken {
+                    buffer: &mut self.rx_buffer,
+                },
+                Enc28j60TxToken {
+                    buffer: &mut self.tx_buffer,
+                    driver: &mut self.driver,
+                },
+            ))
+        } else {
+            None
+        }
+    }
+
+    fn transmit(&'a mut self) -> Option<Self::TxToken> {
+        Some(Enc28j60TxToken {
+            buffer: &mut self.tx_buffer,
+            driver: &mut self.driver,
+        })
+    }
+}
+
+pub struct Enc28j60RxToken<'a> {
     buffer: &'a mut [u8],
 }
 
@@ -112,7 +159,7 @@ impl<'a> phy::RxToken for Enc28j60RxToken<'a> {
     }
 }
 
-struct Enc28j60TxToken<'a, D> {
+pub struct Enc28j60TxToken<'a, D> {
     buffer: &'a mut [u8],
     driver: &'a mut D,
 }
