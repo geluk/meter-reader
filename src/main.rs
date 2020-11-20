@@ -1,30 +1,24 @@
 #![no_std]
 #![no_main]
 
+#[macro_use]
+mod macros;
 mod network;
 
 extern crate panic_halt;
 
-#[allow(deprecated)] // Required because enc28j60 depends on v1.
+use bsp::{
+    hal::{self, gpio::GPIO},
+    t40, usb, SysTick,
+};
 use embedded_hal::digital::v1_compat::OldOutputPin;
-use embedded_hal::digital::v2::OutputPin as OutputPinV2;
-
-use bsp::hal;
-use bsp::hal::spi;
+use hal::ccm::{
+    spi::{ClockSelect, PrescalarSelect},
+    PLL1,
+};
 use teensy4_bsp as bsp;
 
-use enc28j60::Enc28j60;
-
-//const SPI_BAUD_RATE_HZ: u32 = 1_000_000;
-const SPI_BAUD_RATE_HZ: u32 = 2_000_000;
-
-const KB: u16 = 1024;
-
-macro_rules! halt {
-    () => {
-        loop {}
-    };
-}
+const SPI_BAUD_RATE_HZ: u32 = 16_000_000;
 
 #[cortex_m_rt::entry]
 fn main() -> ! {
@@ -33,13 +27,13 @@ fn main() -> ! {
     let core_per = cortex_m::Peripherals::take().unwrap();
 
     // Enable serial USB logging.
-    let mut systick = bsp::SysTick::new(core_per.SYST);
-    let _ = bsp::usb::init(&systick, Default::default()).unwrap();
+    let mut systick = SysTick::new(core_per.SYST);
+    let _ = usb::init(&systick, Default::default()).unwrap();
 
     // Set the default clock speed (500MHz).
     per.ccm
         .pll1
-        .set_arm_clock(hal::ccm::PLL1::ARM_HZ, &mut per.ccm.handle, &mut per.dcdc);
+        .set_arm_clock(PLL1::ARM_HZ, &mut per.ccm.handle, &mut per.dcdc);
 
     systick.delay(5000);
     log::info!("USB logging initialised.");
@@ -47,11 +41,11 @@ fn main() -> ! {
     // Configure the SPI clocks. We'll only use SPI4 for now.
     let (_, _, _, spi4_builder) = per.spi.clock(
         &mut per.ccm.handle,
-        hal::ccm::spi::ClockSelect::Pll2,
-        hal::ccm::spi::PrescalarSelect::LPSPI_PODF_5,
+        ClockSelect::Pll2,
+        PrescalarSelect::LPSPI_PODF_5,
     );
 
-    let pins = bsp::t40::into_pins(per.iomuxc);
+    let pins = t40::into_pins(per.iomuxc);
 
     // Set SPI pin assignments.
     let mut spi4 = spi4_builder.build(pins.p11, pins.p12, pins.p13);
@@ -67,96 +61,19 @@ fn main() -> ! {
     }
 
     // Create a GPIO output pin.
-    let mut rst = bsp::hal::gpio::GPIO::new(pins.p9).output();
+    let mut rst = GPIO::new(pins.p9).output();
     rst.set_fast(true);
-    let mut ncs = bsp::hal::gpio::GPIO::new(pins.p10).output();
+    let rst = OldOutputPin::new(rst);
+    let mut ncs = GPIO::new(pins.p10).output();
     ncs.set_fast(true);
+    let ncs = OldOutputPin::new(ncs);
 
-    //spi_test(&mut systick, spi4, gpio);
-    net_setup(&mut systick, spi4, ncs, rst);
+    let mut driver = network::create_enc28j60(&mut systick, spi4, ncs, rst);
+    get_packets(&mut driver);
 
     halt!();
 }
 
-// SPI testing code
-#[allow(unused)]
-fn spi_test<SPI, P>(
-    delay: &mut impl embedded_hal::blocking::delay::DelayMs<u16>,
-    mut spi: SPI,
-    mut op: hal::gpio::GPIO<P, hal::gpio::Output>,
-) where
-    SPI: embedded_hal::blocking::spi::Transfer<u8, Error = spi::Error>,
-    P: bsp::hal::iomuxc::gpio::Pin,
-{
-    // Dump some test data.
-    loop {
-        for i in 0..255_u8 {
-            match spi.transfer(&mut [i]) {
-                Ok(_) => {
-                    log::info!("Wrote byte: {}", i);
-                }
-                Err(err) => {
-                    log::warn!("Write failed: {:?}", err);
-                }
-            };
-        }
-        op.clear();
-        delay.delay_ms(250);
-        op.set();
-        delay.delay_ms(250);
-    }
-}
-
-// ENC28J60 support (WIP)
-#[allow(deprecated, unused)] // 'deprecated' required because enc28j60 depends on v1.
-fn net_setup<SPI, PNCS, PRST>(
-    delay: &mut bsp::SysTick,
-    mut spi: SPI,
-    mut ncs: hal::gpio::GPIO<PNCS, hal::gpio::Output>,
-    mut rst: hal::gpio::GPIO<PRST, hal::gpio::Output>,
-) where
-    SPI: embedded_hal::blocking::spi::write::Default<u8>
-        + embedded_hal::blocking::spi::transfer::Default<u8>,
-    SPI::Error: core::fmt::Debug,
-    PNCS: bsp::hal::iomuxc::gpio::Pin + 'static,
-    PRST: bsp::hal::iomuxc::gpio::Pin + 'static,
-{
-    log::info!("Initialising reset pin.");
-    if let Err(err) = rst.set_high() {
-        log::warn!("Failed to write to reset pin: {:?}", err);
-        halt!();
-    }
-    delay.delay(1);
-    let rst = OldOutputPin::new(rst);
-    let ncs = OldOutputPin::new(ncs);
-
-    log::info!("Setting up ENC28J60.");
-    let enc28j60 = Enc28j60::new(
-        spi,
-        ncs,
-        enc28j60::Unconnected, // Interrupt
-        rst,
-        delay,
-        7 * KB,
-        [0x22, 0x22, 0, 0, 0, 0],
-    );
-    log::info!("Setup done.");
-    match enc28j60 {
-        Ok(mut enc) => {
-            log::info!("ENC ready!");
-            //return;
-            loop {
-                get_packets(&mut enc);
-                delay.delay(2000);
-            }
-        }
-        Err(err) => {
-            log::warn!("Failed to initialise ENC: {:?}", err);
-        }
-    };
-}
-
-#[allow(deprecated)]
 fn get_packets<D: network::Driver>(driver: &mut D) {
     let mut packet_count = driver.pending_packets();
     log::info!("{} packets ready to be decoded.", packet_count);
