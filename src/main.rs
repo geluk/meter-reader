@@ -154,36 +154,3 @@ fn main() -> ! {
         }
     }
 }
-
-fn get_packets<D: network::Driver>(driver: &mut D) {
-    let mut packet_count = driver.pending_packets();
-    log::info!("{} packets ready to be decoded.", packet_count);
-    let mut buffer = [0u8; 1518];
-    while packet_count > 0 {
-        let len = driver.receive(&mut buffer) as usize;
-        let dst = &buffer[0..6];
-        let src = &buffer[6..12];
-        let ethertype = &buffer[12..14];
-        log::info!(
-            "> DST {:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}",
-            dst[0],
-            dst[1],
-            dst[2],
-            dst[3],
-            dst[4],
-            dst[5],
-        );
-        log::info!(
-            "> SRC {:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}",
-            src[0],
-            src[1],
-            src[2],
-            src[3],
-            src[4],
-            src[5],
-        );
-        log::info!("> EtherType: {:02x}{:02x}", ethertype[0], ethertype[1]);
-        log::info!("> Payload: \n{:02x?}", &buffer[14..len]);
-        packet_count -= 1;
-    }
-}
