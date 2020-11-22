@@ -1,53 +1,63 @@
 #![allow(deprecated)] // Required because enc28j60 depends on v1.
 
-use core::fmt::Debug;
+use core::result::Result;
 
 use embedded_hal::{
-    blocking::spi,
+    blocking::spi::{transfer, write},
     blocking::spi::{Transfer, Write},
     digital::v1::OutputPin,
 };
 use enc28j60::Enc28j60;
-use smoltcp::phy::ChecksumCapabilities;
-use smoltcp::phy::{self, Device, DeviceCapabilities};
-use smoltcp::time::Instant;
-use smoltcp::Result;
-use teensy4_bsp::SysTick;
+use smoltcp::{
+    phy::{self, ChecksumCapabilities, DeviceCapabilities},
+    time::Instant,
+};
+use teensy4_bsp::{hal::spi, SysTick};
 
 const ENC28J60_MTU: usize = enc28j60::MAX_FRAME_LENGTH as usize;
 
+type DriverError = enc28j60::Error<spi::Error>;
+type SpiError = spi::Error;
+
+// This trait isn't meant to be a generic abstraction over any network driver,
+// it's just here so we can program our smoltcp glue against a simple trait
+// instead of the generic soup resulting from Enc28j60 and its trait bounds.
 pub trait Driver {
-    fn pending_packets(&mut self) -> u8;
+    fn pending_packets(&mut self) -> Result<u8, SpiError>;
 
-    fn receive(&mut self, buffer: &mut [u8]) -> u16;
+    fn receive(&mut self, buffer: &mut [u8]) -> Result<u16, SpiError>;
 
-    fn transmit(&mut self, buffer: &[u8]);
+    fn transmit(&mut self, buffer: &[u8]) -> Result<(), DriverError>;
 }
 
-impl<SPI, NCS, INT, RESET, E> Driver for Enc28j60<SPI, NCS, INT, RESET>
+impl<SPI, NCS, INT, RESET> Driver for Enc28j60<SPI, NCS, INT, RESET>
 where
-    SPI: Transfer<u8, Error = E> + Write<u8, Error = E>,
+    SPI: Transfer<u8, Error = spi::Error> + Write<u8, Error = spi::Error>,
     NCS: OutputPin,
     INT: enc28j60::IntPin,
     RESET: enc28j60::ResetPin,
-    E: core::fmt::Debug,
 {
     #[inline]
-    fn pending_packets(&mut self) -> u8 {
-        Enc28j60::pending_packets(self).unwrap()
+    fn pending_packets(&mut self) -> Result<u8, SpiError> {
+        Enc28j60::pending_packets(self)
     }
 
     #[inline]
-    fn receive(&mut self, buffer: &mut [u8]) -> u16 {
-        let recv = Enc28j60::receive(self, buffer).unwrap();
-        log::trace!("> Received {} bytes: {:2x?}", recv, &buffer[0..recv as usize]);
-        recv
+    fn receive(&mut self, buffer: &mut [u8]) -> Result<u16, SpiError> {
+        let recv = Enc28j60::receive(self, buffer)?;
+        log::trace!(
+            "> Received {} bytes: {:02x?}",
+            recv,
+            &buffer[0..recv as usize]
+        );
+        Ok(recv)
     }
 
     #[inline]
-    fn transmit(&mut self, buffer: &[u8]) {
-        Enc28j60::transmit(self, buffer).unwrap();
-        log::trace!("> Sent {} bytes: {:2x?}", buffer.len(), buffer);
+    fn transmit(&mut self, buffer: &[u8]) -> Result<(), DriverError> {
+        Enc28j60::transmit(self, buffer)?;
+        log::trace!("> Sent {} bytes: {:02x?}", buffer.len(), buffer);
+        Ok(())
     }
 }
 
@@ -59,8 +69,7 @@ pub fn create_enc28j60<SPI, PNCS, PRST>(
     addr: [u8; 6],
 ) -> Enc28j60<SPI, PNCS, enc28j60::Unconnected, PRST>
 where
-    SPI: spi::write::Default<u8> + spi::transfer::Default<u8>,
-    SPI::Error: Debug,
+    SPI: write::Default<u8, Error = spi::Error> + transfer::Default<u8, Error = spi::Error>,
     PNCS: OutputPin + 'static,
     PRST: OutputPin + 'static,
 {
@@ -117,10 +126,17 @@ impl<'a, D: 'a + Driver> phy::Device<'a> for Enc28j60Phy<D> {
     }
 
     fn receive(&'a mut self) -> Option<(Self::RxToken, Self::TxToken)> {
-        let pending = self.driver.pending_packets();
+        let pending = self
+            .driver
+            .pending_packets()
+            .map_err(|e| log::warn!("Failed to retrieve pending packet count: {:?}", e))
+            .ok()?;
         if pending > 0 {
             log::trace!("We have {} pending packets", pending);
-            self.driver.receive(&mut self.rx_buffer);
+            self.driver
+                .receive(&mut self.rx_buffer)
+                .map_err(|e| log::warn!("Failed to receive packet from driver: {:?}", e))
+                .ok()?;
 
             Some((
                 Enc28j60RxToken {
@@ -149,9 +165,9 @@ pub struct Enc28j60RxToken<'a> {
 }
 
 impl<'a> phy::RxToken for Enc28j60RxToken<'a> {
-    fn consume<R, F>(mut self, _timestamp: Instant, f: F) -> Result<R>
+    fn consume<R, F>(mut self, _timestamp: Instant, f: F) -> smoltcp::Result<R>
     where
-        F: FnOnce(&mut [u8]) -> Result<R>,
+        F: FnOnce(&mut [u8]) -> smoltcp::Result<R>,
     {
         f(&mut self.buffer)
     }
@@ -163,15 +179,18 @@ pub struct Enc28j60TxToken<'a, D> {
 }
 
 impl<'a, D: Driver> phy::TxToken for Enc28j60TxToken<'a, D> {
-    fn consume<R, F>(self, _timestamp: Instant, len: usize, f: F) -> Result<R>
+    fn consume<R, F>(self, _timestamp: Instant, len: usize, f: F) -> smoltcp::Result<R>
     where
-        F: FnOnce(&mut [u8]) -> Result<R>,
+        F: FnOnce(&mut [u8]) -> smoltcp::Result<R>,
     {
         if len > self.buffer.len() {
             return Err(smoltcp::Error::Exhausted);
         }
         let result = f(&mut self.buffer[..len]);
-        self.driver.transmit(&self.buffer[..len]);
+        self.driver.transmit(&self.buffer[..len]).map_err(|e| {
+            log::warn!("Transmit error: {:?}", e);
+            smoltcp::Error::Illegal
+        })?;
         result
     }
 }
