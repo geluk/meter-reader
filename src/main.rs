@@ -8,6 +8,8 @@ mod network;
 
 extern crate panic_halt;
 
+use crate::network::driver::Enc28j60Phy;
+use crate::network::driver::create_enc28j60;
 use bsp::{
     hal::{self, gpio::GPIO},
     t40, usb, SysTick,
@@ -93,8 +95,8 @@ fn main() -> ! {
     ncs.set_fast(true);
     let ncs = OldOutputPin::new(ncs);
 
-    let driver = network::create_enc28j60(&mut systick, spi4, ncs, rst, ETH_ADDR);
-    let device = network::Enc28j60Phy::new(driver);
+    let driver = create_enc28j60(&mut systick, spi4, ncs, rst, ETH_ADDR);
+    let device = Enc28j60Phy::new(driver);
     let mut addresses = [IpCidr::new(Ipv4Address::UNSPECIFIED.into(), 0)];
 
     let mut cache_backing_store = [None; 8];
