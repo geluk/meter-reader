@@ -15,7 +15,7 @@ log = "0.4.11"
 git = "https://github.com/smoltcp-rs/smoltcp"
 branch = "master"
 default-features = false
-features = ["ethernet", "proto-ipv4", "proto-dhcpv4", "socket-raw", "socket-tcp", "socket-icmp"]
+features = ["ethernet", "proto-ipv4", "proto-dhcpv4", "socket-raw", "socket-tcp", "socket-icmp", "log"]
 
 [dependencies.enc28j60]
 git = "https://github.com/geluk/enc28j60"
