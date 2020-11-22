@@ -47,7 +47,7 @@ fn main() -> ! {
         .set_arm_clock(PLL1::ARM_HZ, &mut per.ccm.handle, &mut per.dcdc);
 
     systick.delay(5000);
-    log::info!("USB logging initialised.");
+    log::info!("USB logging initialised");
 
     // Configure the SPI clocks. We'll only use SPI4 for now.
     let (_, _, _, spi4_builder) = per.spi.clock(
@@ -64,7 +64,7 @@ fn main() -> ! {
     // Set SPI clock speed.
     match spi4.set_clock_speed(hal::spi::ClockSpeed(SPI_BAUD_RATE_HZ)) {
         Ok(()) => {
-            log::info!("Set SPI clock speed to {} Hz.", SPI_BAUD_RATE_HZ);
+            log::info!("Set SPI clock speed to {} Hz", SPI_BAUD_RATE_HZ);
         }
         Err(err) => {
             log::warn!("Unable to set SPI clock speed: {:?}", err);
