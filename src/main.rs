@@ -1,6 +1,7 @@
 #![no_std]
 #![no_main]
 
+mod clock;
 #[macro_use]
 mod macros;
 mod network;
@@ -11,6 +12,7 @@ use bsp::{
     hal::{self, gpio::GPIO},
     t40, usb, SysTick,
 };
+use clock::Clock;
 use core::convert::TryInto;
 use embedded_hal::digital::v1_compat::OldOutputPin;
 use hal::ccm::{
@@ -48,13 +50,18 @@ fn main() -> ! {
     )
     .unwrap();
 
-    // Set the default clock speed (500MHz).
-    per.ccm
-        .pll1
-        .set_arm_clock(PLL1::ARM_HZ, &mut per.ccm.handle, &mut per.dcdc);
-
     systick.delay(5000);
     log::info!("USB logging initialised");
+
+    // Set the default clock speed (500MHz).
+    let (_, ipg) = per
+        .ccm
+        .pll1
+        .set_arm_clock(PLL1::ARM_HZ, &mut per.ccm.handle, &mut per.dcdc);
+    let mut clock = Clock::init(per.ccm.perclk, ipg, &mut per.ccm.handle, per.gpt2);
+    log::info!("Current ms: {}", clock.millis());
+    systick.delay(1000);
+    log::info!("Current ms: {}", clock.millis());
 
     // Configure the SPI clocks. We'll only use SPI4 for now.
     let (_, _, _, spi4_builder) = per.spi.clock(
@@ -165,12 +172,17 @@ fn main() -> ! {
                     }
                     match cfg.router {
                         Some(addr) => {
-                            if let Some(route) = interface.routes_mut().add_default_ipv4_route(addr).unwrap() {
-                                log::info!("Replaced previous route {} with {}", route.via_router, addr);
+                            if let Some(route) =
+                                interface.routes_mut().add_default_ipv4_route(addr).unwrap()
+                            {
+                                log::info!(
+                                    "Replaced previous route {} with {}",
+                                    route.via_router,
+                                    addr
+                                );
                             } else {
                                 log::info!("Added new default route via {}", addr);
                             }
-
                         }
                         None => log::warn!("Did not receive router address from DHCP"),
                     }
@@ -197,14 +209,15 @@ fn main() -> ! {
             match addr {
                 Some(addr) if !socket.is_active() && !sent && !conn_tried => {
                     log::debug!("Got address: {}, trying to connect", addr);
-                    let result = socket.connect((IpAddress::v4(10, 190, 10, 11), 9494), (addr, 45000));
+                    let result =
+                        socket.connect((IpAddress::v4(10, 190, 10, 11), 9494), (addr, 45000));
                     conn_tried = true;
                     match result {
                         Ok(_) => (),
-                        Err(err) => log::warn!("Failed to connect: {}", err)
+                        Err(err) => log::warn!("Failed to connect: {}", err),
                     }
-                },
-                _ => {},
+                }
+                _ => {}
             }
             if socket.can_send() && !sent {
                 log::debug!("Sending data to host");
@@ -226,6 +239,7 @@ fn main() -> ! {
         millis += next_poll;
         if millis % 1000 == 0 {
             log::debug!("Still running...");
+            log::debug!("Clock at {}", clock.millis());
         }
     }
 }
