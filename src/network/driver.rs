@@ -22,7 +22,7 @@ type SpiError = spi::Error;
 // This trait isn't meant to be a generic abstraction over any network driver,
 // it's just here so we can program our smoltcp glue against a simple trait
 // instead of the generic soup resulting from Enc28j60 and its trait bounds.
-pub trait Driver {
+pub trait Driver: 'static {
     fn pending_packets(&mut self) -> Result<u8, SpiError>;
 
     fn receive(&mut self, buffer: &mut [u8]) -> Result<u16, SpiError>;
@@ -32,10 +32,10 @@ pub trait Driver {
 
 impl<SPI, NCS, INT, RESET> Driver for Enc28j60<SPI, NCS, INT, RESET>
 where
-    SPI: Transfer<u8, Error = spi::Error> + Write<u8, Error = spi::Error>,
-    NCS: OutputPin,
-    INT: enc28j60::IntPin,
-    RESET: enc28j60::ResetPin,
+    SPI: Transfer<u8, Error = spi::Error> + Write<u8, Error = spi::Error> + 'static,
+    NCS: OutputPin + 'static,
+    INT: enc28j60::IntPin + 'static,
+    RESET: enc28j60::ResetPin + 'static,
 {
     #[inline]
     fn pending_packets(&mut self) -> Result<u8, SpiError> {
@@ -87,9 +87,12 @@ where
         enc28j60::BUF_SZ - enc28j60::MAX_FRAME_LENGTH,
         addr,
     );
-    log::debug!("ENC28J60 setup done.");
     match enc28j60 {
-        Ok(enc) => enc,
+        Ok(enc) => {
+            delay.delay(100);
+            log::debug!("ENC28J60 setup done.");
+            enc
+        },
         Err(err) => {
             log::warn!("Failed to initialise ENC: {:?}", err);
             halt!();

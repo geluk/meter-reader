@@ -89,6 +89,6 @@ fn main() -> ! {
     let ncs = OldOutputPin::new(ncs);
 
     let driver = create_enc28j60(&mut systick, spi4, ncs, rst, ETH_ADDR);
-
-    init_network(driver, &mut clock, &mut systick, ETH_ADDR);
+    let mut store = network::main::BackingStore::new();
+    init_network(driver, &mut clock, &mut systick, &mut store, ETH_ADDR);
 }

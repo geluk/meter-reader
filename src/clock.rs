@@ -1,3 +1,4 @@
+use smoltcp::time::Instant;
 use teensy4_bsp::hal::{
     ccm::{self, perclk, IPGFrequency},
     gpt::{self, Mode, GPT},
@@ -21,6 +22,7 @@ impl Clock {
         let mut gpt = gpt.clock(&mut clk_cfg);
         gpt.set_mode(Mode::FreeRunning);
         gpt.set_enable(true);
+        log::debug!("GPT rolls over in {} seconds", (gpt.clock_period() * u32::max_value()).as_secs());
         Self {
             gpt,
             rollover_count: 0,
@@ -31,8 +33,13 @@ impl Clock {
         if self.gpt.rollover() {
             self.gpt.clear_rollover();
             self.rollover_count += 1;
+            log::debug!("Clock rolled over to {}", self.rollover_count);
         }
         let total_ticks = (self.rollover_count as i64) << 32 | self.gpt.count() as i64;
         total_ticks / 7500
+    }
+
+    pub fn instant(&mut self) -> Instant {
+        Instant::from_millis(self.millis())
     }
 }
