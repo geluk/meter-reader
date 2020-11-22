@@ -26,6 +26,7 @@ use smoltcp::{
     wire::{EthernetAddress, IpAddress, IpCidr, Ipv4Address},
 };
 use teensy4_bsp as bsp;
+use teensy4_bsp::usb::LoggingConfig;
 
 const ETH_ADDR: [u8; 6] = [0x22, 0x22, 0x00, 0x00, 0x00, 0x00];
 const SPI_BAUD_RATE_HZ: u32 = 16_000_000;
@@ -38,7 +39,14 @@ fn main() -> ! {
 
     // Enable serial USB logging.
     let mut systick = SysTick::new(core_per.SYST);
-    let _ = usb::init(&systick, Default::default()).unwrap();
+    let _ = usb::init(
+        &systick,
+        LoggingConfig {
+            max_level: log::LevelFilter::Debug,
+            filters: &[],
+        },
+    )
+    .unwrap();
 
     // Set the default clock speed (500MHz).
     per.ccm
