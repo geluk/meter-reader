@@ -22,7 +22,10 @@ impl Clock {
         let mut gpt = gpt.clock(&mut clk_cfg);
         gpt.set_mode(Mode::FreeRunning);
         gpt.set_enable(true);
-        log::debug!("GPT rolls over in {} seconds", (gpt.clock_period() * u32::max_value()).as_secs());
+        log::debug!(
+            "GPT rolls over in {} seconds",
+            (gpt.clock_period() * u32::max_value()).as_secs()
+        );
         Self {
             gpt,
             rollover_count: 0,
