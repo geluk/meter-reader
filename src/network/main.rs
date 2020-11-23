@@ -16,10 +16,10 @@ use smoltcp::{
 use teensy4_bsp::SysTick;
 
 pub struct BackingStore {
-    tcp_rx_buffer: [u8; 1024],
-    tcp_tx_buffer: [u8; 1024],
-    dhcp_rx_buffer: [u8; 900],
-    dhcp_tx_buffer: [u8; 600],
+    tcp_rx_buffer: [u8; 8192],
+    tcp_tx_buffer: [u8; 2048],
+    dhcp_rx_buffer: [u8; 1024],
+    dhcp_tx_buffer: [u8; 1024],
     dhcp_tx_metadata: [RawPacketMetadata; 4],
     dhcp_rx_metadata: [RawPacketMetadata; 4],
     // address_buffer: [IpCidr; 1],
@@ -28,10 +28,10 @@ pub struct BackingStore {
 impl BackingStore {
     pub fn new() -> Self {
         BackingStore {
-            tcp_rx_buffer: [0; 1024],
-            tcp_tx_buffer: [0; 1024],
-            dhcp_rx_buffer: [0; 900],
-            dhcp_tx_buffer: [0; 600],
+            tcp_rx_buffer: [0; 8192],
+            tcp_tx_buffer: [0; 2048],
+            dhcp_rx_buffer: [0; 1024],
+            dhcp_tx_buffer: [0; 1024],
             dhcp_tx_metadata: [RawPacketMetadata::EMPTY; 4],
             dhcp_rx_metadata: [RawPacketMetadata::EMPTY; 4],
             // address_buffer: [IpCidr::new(Ipv4Address::UNSPECIFIED.into(), 0)],
