@@ -39,7 +39,7 @@ fn main() -> ! {
     let _ = usb::init(
         &systick,
         LoggingConfig {
-            max_level: log::LevelFilter::Debug,
+            max_level: log::LevelFilter::Trace,
             filters: &[],
         },
     )
@@ -54,9 +54,6 @@ fn main() -> ! {
         .pll1
         .set_arm_clock(PLL1::ARM_HZ, &mut per.ccm.handle, &mut per.dcdc);
     let mut clock = Clock::init(per.ccm.perclk, ipg, &mut per.ccm.handle, per.gpt2);
-    log::info!("Current ms: {}", clock.millis());
-    systick.delay(1000);
-    log::info!("Current ms: {}", clock.millis());
 
     // Configure the SPI clocks. We'll only use SPI4 for now.
     let (_, _, _, spi4_builder) = per.spi.clock(

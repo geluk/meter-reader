@@ -120,7 +120,6 @@ pub fn init_network<D: Driver>(
             .map_or(50, |t| t.total_millis() - now)
             .try_into()
             .unwrap_or(50);
-        log::trace!("[{}] Waiting {} ms before next poll", now, delay);
         systick.delay(delay);
     }
 }
