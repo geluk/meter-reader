@@ -109,11 +109,12 @@ dependencies = [
 [[package]]
 name = "enc28j60"
 version = "0.2.1"
-source = "git+https://github.com/geluk/enc28j60?branch=master#72f6d9bc813669b0da5a358434731d26363c7c9c"
+source = "git+https://github.com/geluk/enc28j60?branch=master#0f44de2f08dd07ad9c633eb14144887f2c6a907c"
 dependencies = [
  "byteorder",
  "cast",
  "embedded-hal",
+ "log",
 ]
 
 [[package]]
@@ -169,9 +170,9 @@ dependencies = [
 
 [[package]]
 name = "imxrt-iomuxc"
-version = "0.1.1"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6b755807a270239691ef54fdf418fabe649781b4e6770341c14f457191243511"
+checksum = "b0241a2cab28670046e04870cb180bbe7bf2cb858d127f4683d5b96c910b3cca"
 dependencies = [
  "imxrt-iomuxc-build",
  "typenum",
@@ -299,9 +300,9 @@ checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
 
 [[package]]
 name = "syn"
-version = "1.0.48"
+version = "1.0.50"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cc371affeffc477f42a221a1e4297aedcea33d47d19b61455588bd9d8f6b19ac"
+checksum = "443b4178719c5a851e1bde36ce12da21d74a0e60b4d982ec3385a933c812f0f6"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -325,7 +326,7 @@ dependencies = [
 [[package]]
 name = "teensy4-bsp"
 version = "0.1.0"
-source = "git+https://github.com/mciantyre/teensy4-rs.git?branch=master#5dd9829a4c590e1f0d73ee369fca96fe0400fcf9"
+source = "git+https://github.com/mciantyre/teensy4-rs.git?branch=master#927c7537e399e2adef16f1f552c4955c509e3d30"
 dependencies = [
  "cortex-m",
  "cortex-m-rt",
@@ -339,7 +340,7 @@ dependencies = [
 [[package]]
 name = "teensy4-fcb"
 version = "0.2.0"
-source = "git+https://github.com/mciantyre/teensy4-rs.git?branch=master#5dd9829a4c590e1f0d73ee369fca96fe0400fcf9"
+source = "git+https://github.com/mciantyre/teensy4-rs.git?branch=master#927c7537e399e2adef16f1f552c4955c509e3d30"
 dependencies = [
  "imxrt-boot-gen",
 ]
@@ -347,7 +348,7 @@ dependencies = [
 [[package]]
 name = "teensy4-pins"
 version = "0.1.0"
-source = "git+https://github.com/mciantyre/teensy4-rs.git?branch=master#5dd9829a4c590e1f0d73ee369fca96fe0400fcf9"
+source = "git+https://github.com/mciantyre/teensy4-rs.git?branch=master#927c7537e399e2adef16f1f552c4955c509e3d30"
 dependencies = [
  "imxrt-iomuxc",
 ]
