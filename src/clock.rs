@@ -32,6 +32,10 @@ impl Clock {
         }
     }
 
+    pub fn ticks(&self) -> u32 {
+        self.gpt.count()
+    }
+
     pub fn millis(&mut self) -> i64 {
         if self.gpt.rollover() {
             self.gpt.clear_rollover();

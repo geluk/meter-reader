@@ -1,22 +1,15 @@
 #![allow(deprecated)] // Required because enc28j60 depends on v1.
 
-use smoltcp::time::Instant;
-use crate::network::driver::Driver;
-use core::convert::TryInto;
-
 use crate::clock::Clock;
+use crate::network::driver::Driver;
 use crate::Enc28j60Phy;
+use crate::Random;
+use smoltcp::wire::IpEndpoint;
 
-use teensy4_bsp::SysTick;
-
-use smoltcp::iface::Routes;
+use core::convert::TryInto;
 use smoltcp::{
     dhcp::{self, Dhcpv4Client},
-    socket::SocketRef,
-};
-use smoltcp::{
-    iface::{EthernetInterfaceBuilder, NeighborCache},
-    socket::{RawPacketMetadata, RawSocketBuffer, SocketSet, TcpSocket, TcpSocketBuffer},
+    time::Instant,
     wire::{EthernetAddress, IpAddress, IpCidr, Ipv4Address},
 };
 
@@ -48,6 +41,7 @@ pub fn init_network<D: Driver>(
     driver: D,
     clock: &mut Clock,
     systick: &mut SysTick,
+    random: &mut Random,
     store: &mut BackingStore,
     addr: [u8; 6],
 ) -> ! {
@@ -112,7 +106,14 @@ pub fn init_network<D: Driver>(
         handle_dhcp(dhcp_poll_res, &mut interface);
 
         let socket = sockets.get::<TcpSocket>(tcp_handle);
-        handle_tcpip(&mut interface, socket, &mut tcp_active, &mut conn_tried, &mut sent);
+        handle_tcpip(
+            &mut interface,
+            socket,
+            random,
+            &mut tcp_active,
+            &mut conn_tried,
+            &mut sent,
+        );
 
         let now = clock.millis();
         let delay = interface
@@ -124,9 +125,14 @@ pub fn init_network<D: Driver>(
     }
 }
 
-pub fn handle_tcpip<D: for<'d> smoltcp::phy::Device<'d>>(
+fn generate_local_port(random: &mut Random) -> u16 {
+    49152 + random.next(16383) as u16
+}
+
+fn handle_tcpip<D: for<'d> smoltcp::phy::Device<'d>>(
     interface: &mut smoltcp::iface::EthernetInterface<D>,
     mut socket: SocketRef<TcpSocket>,
+    random: &mut Random,
     tcp_active: &mut bool,
     conn_tried: &mut bool,
     sent: &mut bool,
@@ -145,11 +151,11 @@ pub fn handle_tcpip<D: for<'d> smoltcp::phy::Device<'d>>(
     let addr = interface.ipv4_addr().filter(|addr| !addr.is_unspecified());
     match addr {
         Some(addr) if !socket.is_active() && !*sent && !*conn_tried => {
-            log::debug!("Got address: {}, trying to connect", addr);
-            // 104.215.95.187
-            let result = socket.connect((IpAddress::v4(104, 215, 95, 187), 80), (addr, 45000));
-            //let result = socket.connect((IpAddress::v4(10, 190, 10, 11), 9494), (addr, 45000));
-            //let result = socket.connect((IpAddress::v4(10, 111, 0, 1), 9494), (addr, 45000));
+            let local = IpEndpoint::new(addr.into(), generate_local_port(random));
+            let remote = IpEndpoint::new(IpAddress::v4(10, 190, 10, 10), 8000);
+
+            log::debug!("Got address, trying to connect {} -> {}", local, remote);
+            let result = socket.connect(remote, local);
             *conn_tried = true;
             match result {
                 Ok(_) => (),

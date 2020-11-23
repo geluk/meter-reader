@@ -5,17 +5,19 @@ mod clock;
 #[macro_use]
 mod macros;
 mod network;
+mod random;
 
 extern crate panic_halt;
 
-use crate::network::driver::create_enc28j60;
-use crate::network::driver::Enc28j60Phy;
-use crate::network::main::init_network;
-use bsp::{
-    hal::{self, gpio::GPIO},
-    t40, usb, SysTick,
+use crate::{
+    clock::Clock,
+    network::{
+        driver::{create_enc28j60, Enc28j60Phy},
+        main::init_network,
+    },
+    random::Random,
 };
-use clock::Clock;
+
 use embedded_hal::digital::v1_compat::OldOutputPin;
 use hal::ccm::{
     spi::{ClockSelect, PrescalarSelect},
@@ -86,6 +88,14 @@ fn main() -> ! {
     let ncs = OldOutputPin::new(ncs);
 
     let driver = create_enc28j60(&mut systick, spi4, ncs, rst, ETH_ADDR);
+    let mut random = Random::new(clock.ticks());
     let mut store = network::main::BackingStore::new();
-    init_network(driver, &mut clock, &mut systick, &mut store, ETH_ADDR);
+    init_network(
+        driver,
+        &mut clock,
+        &mut systick,
+        &mut random,
+        &mut store,
+        ETH_ADDR,
+    );
 }
