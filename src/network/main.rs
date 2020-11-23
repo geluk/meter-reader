@@ -1,17 +1,19 @@
 #![allow(deprecated)] // Required because enc28j60 depends on v1.
 
-use crate::clock::Clock;
-use crate::network::driver::Driver;
-use crate::Enc28j60Phy;
-use crate::Random;
-use smoltcp::wire::IpEndpoint;
-
 use core::convert::TryInto;
+
+use crate::{clock::Clock, network::driver::Driver, Enc28j60Phy, Random};
 use smoltcp::{
     dhcp::{self, Dhcpv4Client},
+    iface::{EthernetInterfaceBuilder, NeighborCache, Routes},
+    socket::{
+        RawPacketMetadata, RawSocketBuffer, SocketRef, SocketSet, TcpSocket, TcpSocketBuffer,
+    },
     time::Instant,
+    wire::IpEndpoint,
     wire::{EthernetAddress, IpAddress, IpCidr, Ipv4Address},
 };
+use teensy4_bsp::SysTick;
 
 pub struct BackingStore {
     tcp_rx_buffer: [u8; 1024],
@@ -45,6 +47,7 @@ pub fn init_network<D: Driver>(
     store: &mut BackingStore,
     addr: [u8; 6],
 ) -> ! {
+    log::info!("Starting network setup");
     let device = Enc28j60Phy::new(driver);
     let mut addresses = [IpCidr::new(Ipv4Address::UNSPECIFIED.into(), 0)];
 
@@ -90,12 +93,14 @@ pub fn init_network<D: Driver>(
     let mut conn_tried = false;
 
     let mut sent = false;
-    log::info!("Starting network setup");
     loop {
         match interface.poll(&mut sockets, clock.instant()) {
             Ok(processed) => {
                 if processed {
-                    log::trace!("[{}] Processed/emitted new packets during polling", clock.millis());
+                    log::trace!(
+                        "[{}] Processed/emitted new packets during polling",
+                        clock.millis()
+                    );
                 }
             }
             Err(e) => {
@@ -166,20 +171,26 @@ fn handle_tcpip<D: for<'d> smoltcp::phy::Device<'d>>(
     }
     if socket.can_send() && !*sent {
         log::trace!("Sending data to host");
-        let data = b"GET / HTTP/1.1\r\nHost: www.msftconnecttest.com\r\nUser-Agent: power-meter/smoltcp/0.1\r\n\r\n";
-        //let data = b"GET / HTTP/1.0\r\nUser-Agent: power-meter/smoltcp/0.1\r\n\r\n";
+        let data = b"GET / HTTP/1.1\r\nHost: www.msftconnecttest.com\r\nUser-Agent: power-meter/smoltcp/0.1\r\nConnection: close\r\n\r\n";
         socket.send_slice(&data[..]).unwrap();
         *sent = true;
     }
     if socket.can_recv() {
-        socket.recv(|data| {
-            if !data.is_empty() {
-                let msg = core::str::from_utf8(data).unwrap_or("(invalid utf8)");
-                log::info!("Received reply: {}", msg);
-            }
-            (data.len(), data)
-        }).unwrap();
+        log::info!("Socket has data");
+        socket
+            .recv(|data| {
+                if !data.is_empty() {
+                    let msg = core::str::from_utf8(data).unwrap_or("(invalid utf8)");
+                    log::info!("Received reply:\n{}", msg);
+                    (data.len(), ())
+                } else {
+                    log::info!("Received empty");
+                    (0, ())
+                }
+            })
+            .unwrap();
     }
+
     if socket.may_send() && !socket.may_recv() {
         log::trace!("Remote endpoint closed, closing socket.");
         // Remote endpoint closed their half of the connection, we should close ours too.
@@ -187,7 +198,7 @@ fn handle_tcpip<D: for<'d> smoltcp::phy::Device<'d>>(
     }
 }
 
-pub fn handle_dhcp<D: for<'d> smoltcp::phy::Device<'d>>(
+fn handle_dhcp<D: for<'d> smoltcp::phy::Device<'d>>(
     dhcp: smoltcp::Result<Option<dhcp::Dhcpv4Config>>,
     interface: &mut smoltcp::iface::EthernetInterface<D>,
 ) {

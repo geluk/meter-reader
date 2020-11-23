@@ -23,17 +23,21 @@ use hal::ccm::{
     spi::{ClockSelect, PrescalarSelect},
     PLL1,
 };
-
-use teensy4_bsp as bsp;
-use teensy4_bsp::usb::LoggingConfig;
+use teensy4_bsp::{
+    hal::{self, gpio::GPIO},
+    t40, usb,
+    usb::LoggingConfig,
+    SysTick,
+};
 
 const SPI_BAUD_RATE_HZ: u32 = 16_000_000;
 const ETH_ADDR: [u8; 6] = [0x22, 0x22, 0x00, 0x00, 0x00, 0x00];
 
 #[cortex_m_rt::entry]
 fn main() -> ! {
+    let stack_bot = 0u8;
     // Take control of the peripherals.
-    let mut per = bsp::Peripherals::take().unwrap();
+    let mut per = teensy4_bsp::Peripherals::take().unwrap();
     let core_per = cortex_m::Peripherals::take().unwrap();
 
     // Enable serial USB logging.
@@ -50,7 +54,7 @@ fn main() -> ! {
     systick.delay(5000);
     log::info!("USB logging initialised");
 
-    // Set the default clock speed (500MHz).
+    // Set the default clock speed (600MHz).
     let (_, ipg) = per
         .ccm
         .pll1
@@ -90,6 +94,11 @@ fn main() -> ! {
     let driver = create_enc28j60(&mut systick, spi4, ncs, rst, ETH_ADDR);
     let mut random = Random::new(clock.ticks());
     let mut store = network::main::BackingStore::new();
+
+    let stack_top = 0u8;
+    log::info!("STACK_BOT: {:06x?}", &stack_bot as *const u8);
+    log::info!("STACK_TOP: {:06x?}", &stack_top as *const u8);
+
     init_network(
         driver,
         &mut clock,
