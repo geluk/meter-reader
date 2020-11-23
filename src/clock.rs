@@ -37,6 +37,9 @@ impl Clock {
     }
 
     pub fn millis(&mut self) -> i64 {
+        // Quirk: this only works if millis() is called often enough, otherwise
+        // we may skip a rollover. Since we call it multiple times per main
+        // loop iteration, this is not an issue.
         if self.gpt.rollover() {
             self.gpt.clear_rollover();
             self.rollover_count += 1;

@@ -16,6 +16,9 @@ use teensy4_bsp::SysTick;
 
 const TX_BUF: usize = enc28j60::MAX_FRAME_LENGTH as usize;
 const RX_BUF: usize = enc28j60::BUF_SZ as usize - TX_BUF;
+// smoltcp's RX buffer is ENC28J60's RX buffer minus "a little bit".
+// This should reduce the likelihood of smoltcp announcing a window size in
+// excess of what ENC28J60 can store.
 const BUF_TOLERANCE: usize = 256;
 
 type DriverError = enc28j60::Error<teensy4_bsp::hal::spi::Error>;
@@ -104,7 +107,7 @@ where
     match enc28j60 {
         Ok(enc) => {
             delay.delay(100);
-            log::debug!("ENC28J60 setup done.");
+            log::debug!("ENC28J60 setup done");
             enc
         }
         Err(err) => {

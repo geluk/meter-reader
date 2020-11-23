@@ -15,6 +15,9 @@ use smoltcp::{
 };
 use teensy4_bsp::SysTick;
 
+const EPHEMERAL_PORT_START: u16 = 49152;
+const EPHEMERAL_PORT_COUNT: u16 = 16383;
+
 pub struct BackingStore {
     tcp_rx_buffer: [u8; 8192],
     tcp_tx_buffer: [u8; 2048],
@@ -131,7 +134,7 @@ pub fn init_network<D: Driver>(
 }
 
 fn generate_local_port(random: &mut Random) -> u16 {
-    49152 + random.next(16383) as u16
+    EPHEMERAL_PORT_START + random.next(EPHEMERAL_PORT_COUNT as u32) as u16
 }
 
 fn handle_tcpip<D: for<'d> smoltcp::phy::Device<'d>>(

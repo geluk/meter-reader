@@ -9,6 +9,7 @@ mod random;
 
 extern crate panic_halt;
 
+use crate::hal::gpio::Output;
 use crate::{
     clock::Clock,
     network::{
@@ -24,7 +25,7 @@ use hal::ccm::{
     PLL1,
 };
 use teensy4_bsp::{
-    hal::{self, gpio::GPIO},
+    hal::{self, gpio::GPIO, iomuxc::gpio::Pin},
     t40, usb,
     usb::LoggingConfig,
     SysTick,
@@ -51,6 +52,7 @@ fn main() -> ! {
     )
     .unwrap();
 
+    // Wait a bit for the host to catch up.
     systick.delay(5000);
     log::info!("USB logging initialised");
 
@@ -61,7 +63,8 @@ fn main() -> ! {
         .set_arm_clock(PLL1::ARM_HZ, &mut per.ccm.handle, &mut per.dcdc);
     let mut clock = Clock::init(per.ccm.perclk, ipg, &mut per.ccm.handle, per.gpt2);
 
-    // Configure the SPI clocks. We'll only use SPI4 for now.
+    // Configure the SPI clock. All SPI builders must be extracted at once,
+    // so we discard the ones we don't need.
     let (_, _, _, spi4_builder) = per.spi.clock(
         &mut per.ccm.handle,
         ClockSelect::Pll2,
@@ -83,14 +86,8 @@ fn main() -> ! {
         }
     }
 
-    // Create a GPIO output pin.
-    let mut rst = GPIO::new(pins.p9).output();
-    rst.set_fast(true);
-    let rst = OldOutputPin::new(rst);
-    let mut ncs = GPIO::new(pins.p10).output();
-    ncs.set_fast(true);
-    let ncs = OldOutputPin::new(ncs);
-
+    let ncs = make_output_pin(pins.p10);
+    let rst = make_output_pin(pins.p9);
     let driver = create_enc28j60(&mut systick, spi4, ncs, rst, ETH_ADDR);
     let mut random = Random::new(clock.ticks());
     let mut store = network::main::BackingStore::new();
@@ -107,4 +104,10 @@ fn main() -> ! {
         &mut store,
         ETH_ADDR,
     );
+
+    fn make_output_pin<P: Pin>(pin: P) -> OldOutputPin<GPIO<P, Output>> {
+        let mut gpio = GPIO::new(pin).output();
+        gpio.set_fast(true);
+        OldOutputPin::new(gpio)
+    }
 }
