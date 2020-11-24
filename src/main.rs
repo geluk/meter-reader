@@ -4,15 +4,17 @@
 mod clock;
 #[macro_use]
 mod macros;
+mod mqtt;
 mod network;
 mod random;
 
 extern crate panic_halt;
 
-use crate::hal::gpio::Output;
 use crate::{
     clock::Clock,
+    hal::gpio::Output,
     network::{
+        client::TcpClientStore,
         driver::{create_enc28j60, Enc28j60Phy},
         stack::NetworkStack,
     },
@@ -24,6 +26,7 @@ use hal::ccm::{
     spi::{ClockSelect, PrescalarSelect},
     PLL1,
 };
+use mqtt::MqttClient;
 use teensy4_bsp::{
     hal::{self, gpio::GPIO, iomuxc::gpio::Pin},
     t40, usb,
@@ -96,10 +99,22 @@ fn main() -> ! {
     log::info!("STACK_BOT: {:06x?}", &stack_bot as *const u8);
     log::info!("STACK_TOP: {:06x?}", &stack_top as *const u8);
 
-    let mut network = NetworkStack::new(driver, &mut clock, &mut store, ETH_ADDR);
+    let mut network = NetworkStack::new(
+        driver,
+        &mut clock,
+        &mut store,
+        ETH_ADDR,
+    );
+
+    let mut client_store = TcpClientStore::new();
+    let mut client = MqttClient::new();
+    
+    network.add_client(&mut client, &mut client_store);
 
     loop {
+        client.do_work();
         network.poll(&mut clock, &mut random);
+        network.poll_client(&mut random, &mut client);
     }
 
     fn make_output_pin<P: Pin>(pin: P) -> OldOutputPin<GPIO<P, Output>> {

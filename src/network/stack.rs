@@ -3,25 +3,23 @@
 use smoltcp::dhcp::Dhcpv4Config;
 use smoltcp::iface::Neighbor;
 use smoltcp::iface::Route;
-use smoltcp::socket::SocketHandle;
 use smoltcp::socket::SocketSetItem;
 
 use crate::{clock::Clock, network::driver::Driver, Enc28j60Phy, Random};
 use smoltcp::{
-    dhcp::{Dhcpv4Client},
+    dhcp::Dhcpv4Client,
     iface::EthernetInterface,
     iface::{EthernetInterfaceBuilder, NeighborCache, Routes},
     socket::{RawPacketMetadata, RawSocketBuffer, SocketSet, TcpSocket, TcpSocketBuffer},
-    wire::IpEndpoint,
     wire::{EthernetAddress, IpAddress, IpCidr, Ipv4Address},
 };
+
+use super::client::{TcpClient, TcpClientStore};
 
 const EPHEMERAL_PORT_START: u16 = 49152;
 const EPHEMERAL_PORT_COUNT: u16 = 16383;
 
 pub struct BackingStore<'store> {
-    tcp_rx_buffer: [u8; 8192],
-    tcp_tx_buffer: [u8; 2048],
     dhcp_rx_buffer: [u8; 1024],
     dhcp_tx_buffer: [u8; 1024],
     dhcp_tx_metadata: [RawPacketMetadata; 4],
@@ -35,8 +33,6 @@ pub struct BackingStore<'store> {
 impl<'store> BackingStore<'store> {
     pub fn new() -> Self {
         BackingStore {
-            tcp_rx_buffer: [0; 8192],
-            tcp_tx_buffer: [0; 2048],
             dhcp_rx_buffer: [0; 1024],
             dhcp_tx_buffer: [0; 1024],
             dhcp_tx_metadata: [RawPacketMetadata::EMPTY; 4],
@@ -52,11 +48,7 @@ impl<'store> BackingStore<'store> {
 pub struct NetworkStack<'store, D: Driver> {
     interface: EthernetInterface<'store, 'store, 'store, Enc28j60Phy<D>>,
     dhcp_client: Dhcpv4Client,
-    tcp_handle: SocketHandle,
     sockets: SocketSet<'store, 'store, 'store>,
-    tcp_active: bool,
-    conn_tried: bool,
-    data_sent: bool,
 }
 
 impl<'store, D: Driver> NetworkStack<'store, D> {
@@ -79,10 +71,6 @@ impl<'store, D: Driver> NetworkStack<'store, D> {
             .routes(routes)
             .finalize();
 
-        let tcp_rx_buffer = TcpSocketBuffer::new(&mut store.tcp_rx_buffer[..]);
-        let tcp_tx_buffer = TcpSocketBuffer::new(&mut store.tcp_tx_buffer[..]);
-        let socket = TcpSocket::new(tcp_rx_buffer, tcp_tx_buffer);
-
         let dhcp_rx_buffer = RawSocketBuffer::new(
             &mut store.dhcp_tx_metadata[..],
             &mut store.dhcp_rx_buffer[..],
@@ -92,7 +80,6 @@ impl<'store, D: Driver> NetworkStack<'store, D> {
             &mut store.dhcp_tx_buffer[..],
         );
         let mut sockets = SocketSet::new(&mut store.socket_store[..]);
-        let tcp_handle = sockets.add(socket);
 
         let dhcp_client = Dhcpv4Client::new(
             &mut sockets,
@@ -104,18 +91,19 @@ impl<'store, D: Driver> NetworkStack<'store, D> {
         Self {
             interface,
             dhcp_client,
-            tcp_handle,
             sockets,
-            tcp_active: false,
-            conn_tried: false,
-            data_sent: false,
         }
     }
-    pub fn poll(&mut self, clock: &mut Clock, random: &mut Random) -> Option<i64> {
-        self._poll(clock, random)
+
+    pub fn add_client<C: TcpClient>(&mut self, client: &mut C, store: &'store mut TcpClientStore) {
+        let socket = TcpSocket::new(
+            TcpSocketBuffer::new(&mut store.rx_buffer[..]),
+            TcpSocketBuffer::new(&mut store.tx_buffer[..]),
+        );
+        client.set_socket_handle(self.sockets.add(socket));
     }
 
-    fn _poll(&mut self, clock: &mut Clock, random: &mut Random) -> Option<i64> {
+    pub fn poll(&mut self, clock: &mut Clock, random: &mut Random) -> Option<i64> {
         match self.interface.poll(&mut self.sockets, clock.instant()) {
             Ok(processed) if processed => {
                 log::trace!("Processed/emitted new packets during polling");
@@ -134,11 +122,19 @@ impl<'store, D: Driver> NetworkStack<'store, D> {
             _ => {}
         }
 
-        self.handle_tcpip(random);
-
         self.interface
             .poll_at(&self.sockets, clock.instant())
             .map(|t| t.total_millis())
+    }
+
+    pub fn poll_client<C: TcpClient>(&mut self, random: &mut Random, client: &mut C) {
+        // Only handle TCP/IP if we have a valid address
+        let addr = self.interface.ipv4_addr();
+        if addr.is_some() && !addr.unwrap().is_unspecified() {
+            let socket = client.get_socket_handle();
+            let socket = self.sockets.get(socket);
+            client.poll(&mut self.interface, socket, random);
+        }
     }
 
     fn handle_dhcp(&mut self, cfg: Dhcpv4Config) {
@@ -150,7 +146,11 @@ impl<'store, D: Driver> NetworkStack<'store, D> {
         );
 
         match cfg {
-            Dhcpv4Config{ address: Some(cidr), router: Some(router), .. } => {
+            Dhcpv4Config {
+                address: Some(cidr),
+                router: Some(router),
+                ..
+            } => {
                 self.interface.update_ip_addrs(|addrs| {
                     let addr = addrs.iter_mut().next().unwrap();
                     log::info!("Received CIDR: {}", cidr);
@@ -162,80 +162,26 @@ impl<'store, D: Driver> NetworkStack<'store, D> {
                     .add_default_ipv4_route(router)
                     .unwrap()
                 {
-                    log::info!("Replaced previous route {} with {}", prev_route.via_router, router);
+                    log::info!(
+                        "Replaced previous route {} with {}",
+                        prev_route.via_router,
+                        router
+                    );
                 } else {
                     log::info!("Added new default route via {}", router);
                 }
-            },
-            cfg => {
-                log::warn!("DHCP configuration did not contain address or DNS: {:?}", cfg);
-            },
-        }
-    }
-
-    fn handle_tcpip(&mut self, random: &mut Random) {
-        let mut socket = self.sockets.get::<TcpSocket>(self.tcp_handle);
-        if socket.is_active() && !self.tcp_active {
-            let local = socket.local_endpoint();
-            let remote = socket.remote_endpoint();
-            log::debug!("Connected {} -> {}", local, remote);
-        } else if !socket.is_active() && self.tcp_active {
-            let local = socket.local_endpoint();
-            let remote = socket.remote_endpoint();
-            log::debug!("Disconnected {} -> {}", local, remote);
-        }
-        self.tcp_active = socket.is_active();
-
-        let addr = self
-            .interface
-            .ipv4_addr()
-            .filter(|addr| !addr.is_unspecified());
-        match addr {
-            Some(addr) if !socket.is_active() && !self.data_sent && !self.conn_tried => {
-                let local = IpEndpoint::new(addr.into(), Self::generate_local_port(random));
-                let remote = IpEndpoint::new(IpAddress::v4(10, 190, 10, 10), 8000);
-
-                log::debug!("Got address, trying to connect {} -> {}", local, remote);
-                let result = socket.connect(remote, local);
-                self.conn_tried = true;
-                match result {
-                    Ok(_) => (),
-                    Err(err) => log::warn!("Failed to connect: {}", err),
-                }
             }
-            _ => {}
-        }
-        if socket.can_send() && !self.data_sent {
-            log::trace!("Sending data to host");
-            let data = b"GET / HTTP/1.1\r\nHost: www.msftconnecttest.com\r\nUser-Agent: power-meter/smoltcp/0.1\r\nConnection: close\r\n\r\n";
-            socket.send_slice(&data[..]).unwrap();
-            self.data_sent = true;
-        }
-        if socket.can_recv() {
-            log::info!("Socket has data");
-            socket
-                .recv(|data| {
-                    if !data.is_empty() {
-                        let msg = core::str::from_utf8(data).unwrap_or("(invalid utf8)");
-                        log::info!("Received reply:\n{}", msg);
-                        (data.len(), ())
-                    } else {
-                        log::info!("Received empty");
-                        (0, ())
-                    }
-                })
-                .unwrap();
-        }
-
-        if socket.may_send() && !socket.may_recv() {
-            log::trace!("Remote endpoint closed, closing socket.");
-            // Remote endpoint closed their half of the connection, we should close ours too.
-            socket.close();
+            cfg => {
+                log::warn!(
+                    "DHCP configuration did not contain address or DNS: {:?}",
+                    cfg
+                );
+            }
         }
     }
+}
 
-    #[inline]
-    fn generate_local_port(random: &mut Random) -> u16 {
-        EPHEMERAL_PORT_START + random.next(EPHEMERAL_PORT_COUNT as u32) as u16
-    }
+#[inline]
+pub fn generate_local_port(random: &mut Random) -> u16 {
+    EPHEMERAL_PORT_START + random.next(EPHEMERAL_PORT_COUNT as u32) as u16
 }
