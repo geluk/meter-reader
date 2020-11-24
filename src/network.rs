@@ -1,5 +1,4 @@
 pub mod driver;
-pub mod main;
+pub mod stack;
 
-pub use main as stack;
 pub use stack::BackingStore;
