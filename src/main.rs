@@ -14,7 +14,7 @@ use crate::{
     clock::Clock,
     network::{
         driver::{create_enc28j60, Enc28j60Phy},
-        main::init_network,
+        stack::NetworkStack,
     },
     random::Random,
 };
@@ -46,7 +46,7 @@ fn main() -> ! {
     let _ = usb::init(
         &systick,
         LoggingConfig {
-            max_level: log::LevelFilter::Trace,
+            max_level: log::LevelFilter::Info,
             filters: &[],
         },
     )
@@ -90,20 +90,17 @@ fn main() -> ! {
     let rst = make_output_pin(pins.p9);
     let driver = create_enc28j60(&mut systick, spi4, ncs, rst, ETH_ADDR);
     let mut random = Random::new(clock.ticks());
-    let mut store = network::main::BackingStore::new();
+    let mut store = network::BackingStore::new();
 
     let stack_top = 0u8;
     log::info!("STACK_BOT: {:06x?}", &stack_bot as *const u8);
     log::info!("STACK_TOP: {:06x?}", &stack_top as *const u8);
 
-    init_network(
-        driver,
-        &mut clock,
-        &mut systick,
-        &mut random,
-        &mut store,
-        ETH_ADDR,
-    );
+    let mut network = NetworkStack::new(driver, &mut clock, &mut store, ETH_ADDR);
+
+    loop {
+        network.poll(&mut clock, &mut random);
+    }
 
     fn make_output_pin<P: Pin>(pin: P) -> OldOutputPin<GPIO<P, Output>> {
         let mut gpio = GPIO::new(pin).output();
