@@ -153,9 +153,9 @@ checksum = "3991722c78672e5006f670da9a374a2af5c944a2a25fa2652346bf74aa1acf57"
 
 [[package]]
 name = "imxrt-hal"
-version = "0.4.1"
+version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ebafdfcc5eea4473cd454e0081cb63d0a41981bb1789b44c7da922f4095bcdd8"
+checksum = "a79bcf18e1471b050e7d381882beb850f1deb96b74236f41cb25a729d79990f4"
 dependencies = [
  "as-slice",
  "bitflags",
@@ -300,9 +300,9 @@ checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
 
 [[package]]
 name = "syn"
-version = "1.0.50"
+version = "1.0.51"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "443b4178719c5a851e1bde36ce12da21d74a0e60b4d982ec3385a933c812f0f6"
+checksum = "3b4f34193997d92804d359ed09953e25d5138df6bcc055a71bf68ee89fdf9223"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -326,7 +326,7 @@ dependencies = [
 [[package]]
 name = "teensy4-bsp"
 version = "0.1.0"
-source = "git+https://github.com/mciantyre/teensy4-rs.git?branch=master#927c7537e399e2adef16f1f552c4955c509e3d30"
+source = "git+https://github.com/mciantyre/teensy4-rs.git?branch=master#71e860d9f0ef2ab3281bc88f4e6fe8048238339e"
 dependencies = [
  "cortex-m",
  "cortex-m-rt",
@@ -340,7 +340,7 @@ dependencies = [
 [[package]]
 name = "teensy4-fcb"
 version = "0.2.0"
-source = "git+https://github.com/mciantyre/teensy4-rs.git?branch=master#927c7537e399e2adef16f1f552c4955c509e3d30"
+source = "git+https://github.com/mciantyre/teensy4-rs.git?branch=master#71e860d9f0ef2ab3281bc88f4e6fe8048238339e"
 dependencies = [
  "imxrt-boot-gen",
 ]
@@ -348,7 +348,7 @@ dependencies = [
 [[package]]
 name = "teensy4-pins"
 version = "0.1.0"
-source = "git+https://github.com/mciantyre/teensy4-rs.git?branch=master#927c7537e399e2adef16f1f552c4955c509e3d30"
+source = "git+https://github.com/mciantyre/teensy4-rs.git?branch=master#71e860d9f0ef2ab3281bc88f4e6fe8048238339e"
 dependencies = [
  "imxrt-iomuxc",
 ]
