@@ -34,6 +34,7 @@ use teensy4_bsp::{
     SysTick,
 };
 
+const LOG_LEVEL: log::LevelFilter = log::LevelFilter::Debug;
 const SPI_BAUD_RATE_HZ: u32 = 16_000_000;
 const ETH_ADDR: [u8; 6] = [0x22, 0x22, 0x00, 0x00, 0x00, 0x00];
 
@@ -49,7 +50,7 @@ fn main() -> ! {
     let _ = usb::init(
         &systick,
         LoggingConfig {
-            max_level: log::LevelFilter::Info,
+            max_level: LOG_LEVEL,
             filters: &[],
         },
     )
