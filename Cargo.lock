@@ -107,6 +107,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "embedded-mqtt"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f71c71773cd2b576767d4ced67c6ebba53699f2d00ccf5e038f902e3f978ddd9"
+dependencies = [
+ "bitfield",
+ "byteorder",
+]
+
+[[package]]
 name = "enc28j60"
 version = "0.2.1"
 source = "git+https://github.com/geluk/enc28j60?branch=master#0f44de2f08dd07ad9c633eb14144887f2c6a907c"
@@ -316,6 +326,7 @@ dependencies = [
  "cortex-m",
  "cortex-m-rt",
  "embedded-hal",
+ "embedded-mqtt",
  "enc28j60",
  "log",
  "panic-halt",
