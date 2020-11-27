@@ -118,6 +118,15 @@ impl<'store, D: Driver> NetworkStack<'store, D> {
             .poll(&mut self.interface, &mut self.sockets, clock.instant())
         {
             Ok(Some(config)) => self.handle_dhcp(config),
+            Err(err) if err == smoltcp::Error::Malformed => {
+                // This will happen from time to time on most networks,
+                // so we shouldn't let it pollute our logs.
+                log::trace!("Malformed DHCP packet");
+            }
+            Err(err) if err == smoltcp::Error::Unrecognized => {
+                // Same as with Malformed.
+                log::trace!("Unrecognised DHCP packet");
+            }
             Err(err) => log::warn!("DHCP error: {}", err),
             _ => {}
         }
