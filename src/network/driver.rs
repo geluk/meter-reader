@@ -52,7 +52,11 @@ where
         log::trace!("Requesting next packet from device");
         match Enc28j60::receive(self, buffer) {
             Ok(recv) => {
-                log::trace!("Got next packet from device, {} bytes", recv);
+                log::trace!(
+                    "Got next packet from device, {} bytes: \n{:02x?}",
+                    recv,
+                    buffer
+                );
                 Ok(recv)
             }
             Err(err) => {
