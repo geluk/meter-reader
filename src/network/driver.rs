@@ -115,7 +115,7 @@ where
             enc
         }
         Err(err) => {
-            log::warn!("Failed to initialise ENC: {:?}", err);
+            log::error!("Failed to initialise ENC: {:?}", err);
             halt!();
         }
     }
