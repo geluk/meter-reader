@@ -36,7 +36,7 @@ use teensy4_bsp::{
 
 const LOG_LEVEL: log::LevelFilter = log::LevelFilter::Debug;
 const SPI_BAUD_RATE_HZ: u32 = 16_000_000;
-const ETH_ADDR: [u8; 6] = [0x22, 0x22, 0x00, 0x00, 0x00, 0x00];
+const ETH_ADDR: [u8; 6] = [0xEE, 0x00, 0x00, 0x0E, 0x4C, 0xA2];
 
 #[cortex_m_rt::entry]
 fn main() -> ! {
