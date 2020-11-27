@@ -119,10 +119,12 @@ impl TcpClient for MqttClient {
         if socket.can_send() {
             match self.mqtt_state {
                 MqttState::Unconnected => self.connect_mqtt(socket),
-                MqttState::Connected => if !self.pub_sent {
-                    self.pub_sent = true;
-                    self.send_pub(socket);
-                },
+                MqttState::Connected => {
+                    if !self.pub_sent {
+                        self.pub_sent = true;
+                        self.send_pub(socket);
+                    }
+                }
                 _ => {}
             }
         }
@@ -184,7 +186,7 @@ impl MqttClient {
         mut socket: SocketRef<TcpSocket>,
         packet: Packet,
     ) -> smoltcp::Result<()> {
-        log::debug!(
+        log::trace!(
             "Sending {:?}: {:#?}",
             packet.fixed_header().r#type(),
             packet

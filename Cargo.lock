@@ -329,6 +329,7 @@ dependencies = [
  "embedded-mqtt",
  "enc28j60",
  "log",
+ "nb 0.1.3",
  "panic-halt",
  "smoltcp",
  "teensy4-bsp",
