@@ -100,16 +100,11 @@ fn main() -> ! {
     log::info!("STACK_BOT: {:06x?}", &stack_bot as *const u8);
     log::info!("STACK_TOP: {:06x?}", &stack_top as *const u8);
 
-    let mut network = NetworkStack::new(
-        driver,
-        &mut clock,
-        &mut store,
-        ETH_ADDR,
-    );
+    let mut network = NetworkStack::new(driver, &mut clock, &mut store, ETH_ADDR);
 
     let mut client_store = TcpClientStore::new();
     let mut client = MqttClient::new();
-    
+
     network.add_client(&mut client, &mut client_store);
 
     loop {
