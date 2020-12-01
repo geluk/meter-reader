@@ -29,6 +29,7 @@ use embedded_hal::digital::v1_compat::OldOutputPin;
 use hal::ccm::{spi, PLL1};
 use mqtt::MqttClient;
 use teensy4_bsp::{SysTick, hal::{self, gpio::GPIO, iomuxc::gpio::Pin, ccm}, t40, usb, usb::LoggingConfig};
+use uart::DmaUart;
 
 const LOG_LEVEL: log::LevelFilter = log::LevelFilter::Debug;
 const SPI_BAUD_RATE_HZ: u32 = 16_000_000;
@@ -102,7 +103,7 @@ fn main() -> ! {
         }
     }
 
-    uart::init(uart, per.dma, &mut per.ccm.handle);
+    let mut dma_uart = DmaUart::new(uart, per.dma, &mut per.ccm.handle);
 
     let ncs = make_output_pin(pins.p10);
     let rst = make_output_pin(pins.p9);
@@ -124,11 +125,8 @@ fn main() -> ! {
     let stack_top_addr = (&stack_top as *const u8) as usize;
     log::info!("STACK_SZE: {}K", (stack_top_addr - stack_bot_addr) / 1024);
 
-    let mut process_buffer = [0u8; 1024];
-    let mut pos = 0usize;
     loop {
-        uart::poll(&mut process_buffer, &mut pos);
-        client.do_work();
+        dma_uart.poll();
         network.poll(&mut clock, &mut random);
         network.poll_client(&mut random, &mut client);
     }

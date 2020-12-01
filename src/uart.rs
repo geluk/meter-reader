@@ -20,72 +20,85 @@ static mut DMA_PERIPHERAL: Option<DmaPeripheral> = None;
 
 static RX_READY: AtomicBool = AtomicBool::new(false);
 
-pub fn init(uart: UART<consts::U2>, dma: dma::Unclocked, ccm: &mut ccm::Handle) {
-    let mut channels = dma.clock(ccm);
-    let mut rx_channel = channels[DMA_RX_CHANNEL].take().unwrap();
-
-    rx_channel.set_interrupt_on_completion(true);
-    
-    let dma_uart = unsafe {
-        DMA_PERIPHERAL = Some(dma::Peripheral::new_receive(uart, rx_channel));
-        cortex_m::peripheral::NVIC::unmask(interrupt::DMA7_DMA23);
-        DMA_PERIPHERAL.as_mut().unwrap()
-    };
-    let rx_buffer = match dma::Circular::new(&RX_MEM.0) {
-        Ok(circular) => circular,
-        Err(error) => {
-            log::error!("Unable to create circular RX buffer: {:?}", error);
-            halt!();
-        }
-    };
-    free(|cs| {
-        *RX_BUFFER.borrow(cs).borrow_mut() = Some(rx_buffer);
-    });
-
-    let mut rx_buffer =
-        free(|cs| RX_BUFFER.borrow(cs).borrow_mut().take()).unwrap_or_else(|| {
-            log::error!("RX buffer was not set");
-            halt!();
-        });
-    rx_buffer.reserve(RX_RESERV);
-    if let Err(err) = dma_uart.start_receive(rx_buffer) {
-        log::error!("Error scheduling DMA receive: {:?}", err);
-        halt!();
-    }
-    RX_READY.store(false, Ordering::Release);
+pub struct DmaUart {
+    read_buffer: [u8; 1024],
+    read_buffer_pos: usize,
 }
 
-pub fn poll(process_buffer: &mut [u8], pos: &mut usize) {
-    if RX_READY.load(Ordering::Acquire) {
-        RX_READY.store(false, Ordering::Release);
-        let mut rx_buffer = free(|cs| RX_BUFFER.borrow(cs).borrow_mut().take())
-        .unwrap_or_else(|| {
-            log::error!("Failed to acquire RX buffer.");
-            halt!();
-        });
-
-        let len = rx_buffer.len();
-        for i in 0..len {
-            process_buffer[i + *pos] = rx_buffer.pop().unwrap();
-        }
-        *pos += len;
-
-        let res = free(|_| {
-            unsafe {
-                DMA_PERIPHERAL.as_mut().unwrap().start_receive(rx_buffer)
+impl DmaUart {
+    pub fn new(uart: UART<consts::U2>, dma: dma::Unclocked, ccm: &mut ccm::Handle) -> Self {
+        let mut channels = dma.clock(ccm);
+        let mut rx_channel = channels[DMA_RX_CHANNEL].take().unwrap();
+    
+        rx_channel.set_interrupt_on_completion(true);
+        
+        let dma_uart = unsafe {
+            DMA_PERIPHERAL = Some(dma::Peripheral::new_receive(uart, rx_channel));
+            cortex_m::peripheral::NVIC::unmask(interrupt::DMA7_DMA23);
+            DMA_PERIPHERAL.as_mut().unwrap()
+        };
+        let rx_buffer = match dma::Circular::new(&RX_MEM.0) {
+            Ok(circular) => circular,
+            Err(error) => {
+                log::error!("Unable to create circular RX buffer: {:?}", error);
+                halt!();
             }
+        };
+        free(|cs| {
+            *RX_BUFFER.borrow(cs).borrow_mut() = Some(rx_buffer);
         });
-        if let Err(err) = res {
+    
+        let mut rx_buffer =
+            free(|cs| RX_BUFFER.borrow(cs).borrow_mut().take()).unwrap_or_else(|| {
+                log::error!("RX buffer was not set");
+                halt!();
+            });
+        rx_buffer.reserve(RX_RESERV);
+        if let Err(err) = dma_uart.start_receive(rx_buffer) {
             log::error!("Error scheduling DMA receive: {:?}", err);
             halt!();
         }
+        RX_READY.store(false, Ordering::Release);
+
+        Self {
+            read_buffer: [0; 1024],
+            read_buffer_pos: 0,
+        }
     }
-    if *pos > 0 {
-        let b = &process_buffer[0..*pos];
-        log::debug!("Got message: {}", core::str::from_utf8(b).unwrap());
-        *pos = 0;
+
+    pub fn poll(&mut self) {
+        if RX_READY.load(Ordering::Acquire) {
+            RX_READY.store(false, Ordering::Release);
+            let mut rx_buffer = free(|cs| RX_BUFFER.borrow(cs).borrow_mut().take())
+            .unwrap_or_else(|| {
+                log::error!("Failed to acquire RX buffer.");
+                halt!();
+            });
+
+            let end = self.read_buffer_pos + rx_buffer.len();
+            for i in self.read_buffer_pos..end {
+                self.read_buffer[self.read_buffer_pos + i] = rx_buffer.pop().unwrap();
+            }
+            self.read_buffer_pos = end;
+
+            let res = free(|_| {
+                unsafe {
+                    DMA_PERIPHERAL.as_mut().unwrap().start_receive(rx_buffer)
+                }
+            });
+            if let Err(err) = res {
+                log::error!("Error scheduling DMA receive: {:?}", err);
+                halt!();
+            }
+        }
+        if self.read_buffer_pos > 0 {
+            let b = &self.read_buffer[0..self.read_buffer_pos];
+            log::debug!("Got message: {}", core::str::from_utf8(b).unwrap());
+            self.read_buffer_pos = 0;
+        }
     }
 }
+
 
 #[cortex_m_rt::interrupt]
 unsafe fn DMA7_DMA23() {
