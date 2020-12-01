@@ -7,18 +7,15 @@ mod macros;
 mod mqtt;
 mod network;
 mod random;
+mod uart;
 
 extern crate panic_halt;
 
-use embedded_hal::prelude::_embedded_hal_serial_Read;
-use core::{
-    cell::RefCell,
-    sync::atomic::{AtomicBool, Ordering},
-};
+use core::sync::atomic::Ordering;
 
 use crate::{
     clock::Clock,
-    hal::{gpio::Output, iomuxc::consts::U2},
+    hal::gpio::Output,
     network::{
         client::TcpClientStore,
         driver::{create_enc28j60, Enc28j60Phy},
@@ -26,36 +23,17 @@ use crate::{
     },
     random::Random,
 };
-use cortex_m::interrupt::{free, Mutex};
+use cortex_m::interrupt::free;
 
 use embedded_hal::digital::v1_compat::OldOutputPin;
-use hal::ccm::{spi, uart, PLL1};
+use hal::ccm::{spi, PLL1};
 use mqtt::MqttClient;
-use teensy4_bsp::{
-    hal::{self, dma, gpio::GPIO, iomuxc::gpio::Pin, uart::UART},
-    interrupt, t40, usb,
-    usb::LoggingConfig,
-    SysTick,
-};
+use teensy4_bsp::{SysTick, hal::{self, gpio::GPIO, iomuxc::gpio::Pin, ccm}, t40, usb, usb::LoggingConfig};
 
 const LOG_LEVEL: log::LevelFilter = log::LevelFilter::Debug;
 const SPI_BAUD_RATE_HZ: u32 = 16_000_000;
-const ETH_ADDR: [u8; 6] = [0xEE, 0x00, 0x00, 0x0E, 0x4C, 0xA2];
 const DSMR_42_BAUD: u32 = 115200;
-const DMA_RX_CHANNEL: usize = 7;
-const RX_RESERV: usize = 2;
-const RX_BUF_SZ: usize = 64;
-
-#[repr(align(64))]
-struct Align64(dma::Buffer<[u8; RX_BUF_SZ]>);
-
-static RX_MEM: Align64 = Align64(dma::Buffer::new([0; RX_BUF_SZ]));
-static RX_BUFFER: Mutex<RefCell<Option<dma::Circular<u8>>>> = Mutex::new(RefCell::new(None));
-
-type DmaUart = dma::Peripheral<UART<U2>, u8, dma::Linear<u8>, dma::Circular<u8>>;
-static mut DMA_PERIPHERAL: Option<DmaUart> = None;
-
-static RX_READY: AtomicBool = AtomicBool::new(false);
+const ETH_ADDR: [u8; 6] = [0xEE, 0x00, 0x00, 0x0E, 0x4C, 0xA2];
 
 #[cortex_m_rt::entry]
 fn main() -> ! {
@@ -97,8 +75,8 @@ fn main() -> ! {
     // Configure UART.
     let uarts = per.uart.clock(
         &mut per.ccm.handle,
-        uart::ClockSelect::OSC,
-        uart::PrescalarSelect::DIVIDE_1,
+        ccm::uart::ClockSelect::OSC,
+        ccm::uart::PrescalarSelect::DIVIDE_1,
     );
 
     let pins = t40::into_pins(per.iomuxc);
@@ -106,80 +84,13 @@ fn main() -> ! {
     // Set SPI pin assignments.
     let mut spi4 = spi4_builder.build(pins.p11, pins.p12, pins.p13);
     // SET UART pin assignments.
-    let mut uart = uarts
+    let uart = uarts
         .uart2
         .init(pins.p14, pins.p15, DSMR_42_BAUD)
         .unwrap_or_else(|err| {
             log::error!("Failed to configure UART: {:?}", err);
             halt!();
         });
-
-    let mut channels = per.dma.clock(&mut per.ccm.handle);
-    let mut rx_channel = channels[DMA_RX_CHANNEL].take().unwrap();
-
-    rx_channel.set_interrupt_on_completion(true);
-
-    let dma_uart = unsafe {
-        DMA_PERIPHERAL = Some(dma::Peripheral::new_receive(uart, rx_channel));
-        cortex_m::peripheral::NVIC::unmask(interrupt::DMA7_DMA23);
-        DMA_PERIPHERAL.as_mut().unwrap()
-    };
-    let rx_buffer = match dma::Circular::new(&RX_MEM.0) {
-        Ok(circular) => circular,
-        Err(error) => {
-            log::error!("Unable to create circular RX buffer: {:?}", error);
-            halt!();
-        }
-    };
-    free(|cs| {
-        *RX_BUFFER.borrow(cs).borrow_mut() = Some(rx_buffer);
-    });
-
-    {
-        let mut rx_buffer =
-            free(|cs| RX_BUFFER.borrow(cs).borrow_mut().take()).unwrap_or_else(|| {
-                log::error!("RX buffer was not set");
-                halt!();
-            });
-        rx_buffer.reserve(RX_RESERV);
-        if let Err(err) = dma_uart.start_receive(rx_buffer) {
-            log::error!("Error scheduling DMA receive: {:?}", err);
-            halt!();
-        }
-        RX_READY.store(false, Ordering::Release);
-    }
-
-    let mut process_buffer = [0u8; 1024];
-    let mut pos = 0usize;
-
-    loop {
-        if RX_READY.load(Ordering::Acquire) {
-            RX_READY.store(false, Ordering::Release);
-            let mut rx_buffer = free(|cs| RX_BUFFER.borrow(cs).borrow_mut().take())
-            .unwrap_or_else(|| {
-                log::error!("Failed to acquire RX buffer.");
-                halt!();
-            });
-
-            let len = rx_buffer.len();
-            for i in 0..len {
-                process_buffer[i + pos] = rx_buffer.pop().unwrap();
-            }
-            pos += len;
-
-            //free(|cs| *RX_BUFFER.borrow(cs).borrow_mut() = Some(rx_buffer));
-            if let Err(err) = dma_uart.start_receive(rx_buffer) {
-                log::error!("Error scheduling DMA receive: {:?}", err);
-                halt!();
-            }
-        } if pos > 0 {
-            let b = &process_buffer[0..pos];
-            log::debug!("Got message: {}", core::str::from_utf8(b).unwrap());
-            pos = 0;
-        }
-        //log::debug!("Waiting 1000ms");
-        //systick.delay(1000);
-    }
 
     // Set SPI clock speed.
     match spi4.set_clock_speed(hal::spi::ClockSpeed(SPI_BAUD_RATE_HZ)) {
@@ -190,6 +101,8 @@ fn main() -> ! {
             log::warn!("Unable to set SPI clock speed: {:?}", err);
         }
     }
+
+    uart::init(uart, per.dma, &mut per.ccm.handle);
 
     let ncs = make_output_pin(pins.p10);
     let rst = make_output_pin(pins.p9);
@@ -211,7 +124,10 @@ fn main() -> ! {
     let stack_top_addr = (&stack_top as *const u8) as usize;
     log::info!("STACK_SZE: {}K", (stack_top_addr - stack_bot_addr) / 1024);
 
+    let mut process_buffer = [0u8; 1024];
+    let mut pos = 0usize;
     loop {
+        uart::poll(&mut process_buffer, &mut pos);
         client.do_work();
         network.poll(&mut clock, &mut random);
         network.poll_client(&mut random, &mut client);
@@ -221,22 +137,5 @@ fn main() -> ! {
         let mut gpio = GPIO::new(pin).output();
         gpio.set_fast(true);
         OldOutputPin::new(gpio)
-    }
-}
-
-#[cortex_m_rt::interrupt]
-unsafe fn DMA7_DMA23() {
-    let uart = DMA_PERIPHERAL.as_mut().unwrap();
-
-    // Safe to create a critical section. This won't be preempted by a higher-priority
-    // exception.
-    let cs = cortex_m::interrupt::CriticalSection::new();
-
-    if uart.is_receive_interrupt() {
-        uart.receive_clear_interrupt();
-        let mut rx_buffer = RX_BUFFER.borrow(&cs).borrow_mut();
-        let data = uart.receive_complete();
-        *rx_buffer = data;
-        RX_READY.store(true, Ordering::Release);
     }
 }
