@@ -132,6 +132,16 @@ fn main() -> ! {
         dma_uart.poll();
         network.poll(&mut clock, &mut random);
         network.poll_client(&mut random, &mut client);
+        let (read, res) = dsmr42::parse(&dma_uart.get_buffer());
+        match res {
+            Ok(telegram) => {
+                log::info!("Got new telegram: {:#?}", telegram);
+            }
+            Err(err) => {
+                log::warn!("Failed to parse telegram: {:?}", err);
+            }
+        }
+        dma_uart.consume(read);
     }
 
     fn make_output_pin<P: Pin>(pin: P) -> OldOutputPin<GPIO<P, Output>> {

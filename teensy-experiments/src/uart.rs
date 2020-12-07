@@ -100,6 +100,16 @@ impl DmaUart {
             self.read_buffer_pos = 0;
         }
     }
+
+    pub fn get_buffer(&self) -> &[u8] {
+        &self.read_buffer[..self.read_buffer_pos]
+    }
+
+    /// Advances the read buffer by `count` bytes.
+    pub fn consume(&mut self, count: usize) {
+        self.read_buffer.copy_within(count.., 0);
+        self.read_buffer_pos -= count;
+    }
 }
 
 #[cortex_m_rt::interrupt]
