@@ -9,8 +9,17 @@ mod network;
 mod random;
 mod uart;
 
-#[cfg(not(test))]
-extern crate panic_halt;
+use core::panic::PanicInfo;
+use core::sync::atomic::{self, Ordering};
+
+#[inline(never)]
+#[panic_handler]
+fn panic(info: &PanicInfo) -> ! {
+    log::error!("PANIC {}", info);
+    loop {
+        atomic::compiler_fence(Ordering::SeqCst);
+    }
+}
 
 use crate::{
     clock::Clock,
@@ -137,11 +146,21 @@ fn main() -> ! {
             Ok(telegram) => {
                 log::info!("Got new telegram: {:#?}", telegram);
             }
+            Err(dsmr42::TelegramParseError::Incomplete) => {
+                let buffer = dma_uart.get_buffer();
+                if buffer.len() > 0 {
+                    //log::info!("Incomplete buffer: {} bytes", buffer.len());
+                }
+            }
             Err(err) => {
-                log::warn!("Failed to parse telegram: {:?}", err);
+                let buffer = dma_uart.get_buffer();
+                log::warn!("Failed to parse telegram ({} bytes): {:?}, buffer: {:?}", buffer.len(), err, core::str::from_utf8(buffer));
             }
         }
-        dma_uart.consume(read);
+        if read > 0 {
+            log::info!("Consuming {} byte of {}", read, dma_uart.get_buffer().len());
+            dma_uart.consume(read);
+        }
     }
 
     fn make_output_pin<P: Pin>(pin: P) -> OldOutputPin<GPIO<P, Output>> {
