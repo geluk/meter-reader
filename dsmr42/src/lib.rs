@@ -497,37 +497,17 @@ mod tests {
         }
     }
 
-
     #[test]
-    fn invalid_cosem_fails() {
-        let res: TestResult<&str> = cosem()("invalid string");
-        match res.unwrap_err() {
-            Err::Error(t) => {}
-            _ => panic!("Expected parse error"),
-        }
-    }
-
-    #[test]
-    fn valid_cosem_parses() {
-        let res: TestResult<&str> = cosem()("(00.000*kW)");
-        let (_, cosem) = res.unwrap();
-        assert_eq!(cosem, "00.000*kW")
-    }
-
-    #[test]
-    fn obis_without_tag_f_parses() {
-        let res: TestResult<[u8; 6]> = obis_code("0-0:96.7.21()");
-        let (rem, obis) = res.unwrap();
-        assert_eq!("()", rem);
-        assert_eq!(obis, [0, 0, 96, 7, 21, 255])
-    }
-
-    #[test]
-    fn obis_with_tag_f_parses() {
-        let res: TestResult<[u8; 6]> = obis_code("255-255:0.1.0.18()");
-        let (rem, obis) = res.unwrap();
-        assert_eq!("()", rem);
-        assert_eq!(obis, [255, 255, 0, 1, 0, 18])
+    fn simple_telegram_parses() {
+        let mut line_buffer = ArrayVec::<[_; 32]>::new();
+        let res: TestResult<Telegram> = telegram(
+            "/XMX1000\r\n\r\n1-3:0.2.8(42)\r\n0-0:1.0.0(200208153506W)\r\n!FFFF\r\n",
+            line_buffer,
+        );
+        let (rem, tel) = res.unwrap();
+        assert_eq!("XMX1000", tel.device_id);
+        assert_eq!(2, tel.lines.len());
+        assert_eq!(65535, tel.crc);
     }
 
     #[test]
@@ -562,23 +542,42 @@ mod tests {
     }
 
     #[test]
-    fn simple_telegram_parses() {
-        let mut line_buffer = ArrayVec::<[_; 32]>::new();
-        let res: TestResult<Telegram> = telegram(
-            "/XMX1000\r\n\r\n1-3:0.2.8(42)\r\n0-0:1.0.0(200208153506W)\r\n!FFFF\r\n",
-            line_buffer,
-        );
-        let (rem, tel) = res.unwrap();
-        assert_eq!("XMX1000", tel.device_id);
-        assert_eq!(2, tel.lines.len());
-        assert_eq!(65535, tel.crc);
+    fn invalid_cosem_fails() {
+        let res: TestResult<&str> = cosem()("invalid string");
+        match res.unwrap_err() {
+            Err::Error(t) => {}
+            _ => panic!("Expected parse error"),
+        }
+    }
+
+    #[test]
+    fn valid_cosem_parses() {
+        let res: TestResult<&str> = cosem()("(00.000*kW)");
+        let (_, cosem) = res.unwrap();
+        assert_eq!("00.000*kW", cosem)
+    }
+
+    #[test]
+    fn obis_without_tag_f_parses() {
+        let res: TestResult<[u8; 6]> = obis_code("0-0:96.7.21()");
+        let (rem, obis) = res.unwrap();
+        assert_eq!("()", rem);
+        assert_eq!([0, 0, 96, 7, 21, 255], obis)
+    }
+
+    #[test]
+    fn obis_with_tag_f_parses() {
+        let res: TestResult<[u8; 6]> = obis_code("255-255:0.1.0.18()");
+        let (rem, obis) = res.unwrap();
+        assert_eq!("()", rem);
+        assert_eq!([255, 255, 0, 1, 0, 18], obis)
     }
 
     #[test]
     fn crc_parses() {
         let res: TestResult<u16> = crc("!FE01\r\n");
         let (rem, crc) = res.unwrap();
-        assert_eq!(crc, 65025);
+        assert_eq!(65025, crc);
     }
 
     #[test]
