@@ -1,0 +1,46 @@
+[package]
+name = "teensy-experiments"
+version = "0.1.0"
+authors = ["Johan <johan@geluk.io>"]
+edition = "2018"
+
+[dependencies]
+panic-halt = "0.2.0"
+cortex-m = "0.6.2"
+cortex-m-rt = "0.6.13"
+embedded-hal = "0.2.3"
+log = "0.4.11"
+embedded-mqtt = "0.1.0"
+nb = "*"
+
+[dependencies.smoltcp]
+git = "https://github.com/smoltcp-rs/smoltcp"
+branch = "master"
+default-features = false
+features = ["ethernet", "proto-ipv4", "proto-dhcpv4", "socket-raw", "socket-tcp", "socket-icmp", "log"]
+
+[dependencies.enc28j60]
+git = "https://github.com/geluk/enc28j60"
+branch = "master"
+
+[dependencies.teensy4-bsp]
+git = "https://github.com/mciantyre/teensy4-rs.git"
+branch = "master"
+features = ["rt"]
+
+[dependencies.nom]
+version = "6.0"
+default-features = false
+
+[dependencies.arrayvec]
+version = "*"
+default-features = false
+features = []
+
+[dependencies.dsmr42]
+path = "../dsmr42"
+
+# Don't optimize build dependencies, like proc macros.
+# Helps with build times.
+[profile.release.build-override]
+opt-level = 0

@@ -1,7 +1,7 @@
 # Artifacts
-/target
+target
+out
 **/*.rs.bk
-/out
 teensy-test.hex
 
 # Cargo

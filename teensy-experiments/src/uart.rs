@@ -1,8 +1,14 @@
-use core::{cell::RefCell, sync::atomic::{AtomicBool, Ordering}};
+use core::{
+    cell::RefCell,
+    sync::atomic::{AtomicBool, Ordering},
+};
 
-use cortex_m::interrupt::{Mutex, free};
+use cortex_m::interrupt::{free, Mutex};
 
-use teensy4_bsp::{hal::{uart::UART, ccm, dma, iomuxc::{prelude::consts}}, interrupt};
+use teensy4_bsp::{
+    hal::{ccm, dma, iomuxc::prelude::consts, uart::UART},
+    interrupt,
+};
 
 const DMA_RX_CHANNEL: usize = 7;
 const RX_RESERV: usize = 2;
@@ -29,9 +35,9 @@ impl DmaUart {
     pub fn new(uart: UART<consts::U2>, dma: dma::Unclocked, ccm: &mut ccm::Handle) -> Self {
         let mut channels = dma.clock(ccm);
         let mut rx_channel = channels[DMA_RX_CHANNEL].take().unwrap();
-    
+
         rx_channel.set_interrupt_on_completion(true);
-        
+
         let dma_uart = unsafe {
             DMA_PERIPHERAL = Some(dma::Peripheral::new_receive(uart, rx_channel));
             cortex_m::peripheral::NVIC::unmask(interrupt::DMA7_DMA23);
@@ -47,7 +53,7 @@ impl DmaUart {
         free(|cs| {
             *RX_BUFFER.borrow(cs).borrow_mut() = Some(rx_buffer);
         });
-    
+
         let mut rx_buffer =
             free(|cs| RX_BUFFER.borrow(cs).borrow_mut().take()).unwrap_or_else(|| {
                 log::error!("RX buffer was not set");
@@ -69,11 +75,11 @@ impl DmaUart {
     pub fn poll(&mut self) {
         if RX_READY.load(Ordering::Acquire) {
             RX_READY.store(false, Ordering::Release);
-            let mut rx_buffer = free(|cs| RX_BUFFER.borrow(cs).borrow_mut().take())
-            .unwrap_or_else(|| {
-                log::error!("Failed to acquire RX buffer.");
-                halt!();
-            });
+            let mut rx_buffer =
+                free(|cs| RX_BUFFER.borrow(cs).borrow_mut().take()).unwrap_or_else(|| {
+                    log::error!("Failed to acquire RX buffer.");
+                    halt!();
+                });
 
             let end = self.read_buffer_pos + rx_buffer.len();
             for i in self.read_buffer_pos..end {
@@ -81,11 +87,8 @@ impl DmaUart {
             }
             self.read_buffer_pos = end;
 
-            let res = free(|_| {
-                unsafe {
-                    DMA_PERIPHERAL.as_mut().unwrap().start_receive(rx_buffer)
-                }
-            });
+            let res =
+                free(|_| unsafe { DMA_PERIPHERAL.as_mut().unwrap().start_receive(rx_buffer) });
             if let Err(err) = res {
                 log::error!("Error scheduling DMA receive: {:?}", err);
                 halt!();
@@ -98,7 +101,6 @@ impl DmaUart {
         }
     }
 }
-
 
 #[cortex_m_rt::interrupt]
 unsafe fn DMA7_DMA23() {

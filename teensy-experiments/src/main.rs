@@ -9,9 +9,8 @@ mod network;
 mod random;
 mod uart;
 
+#[cfg(not(test))]
 extern crate panic_halt;
-
-use core::sync::atomic::Ordering;
 
 use crate::{
     clock::Clock,
@@ -23,12 +22,16 @@ use crate::{
     },
     random::Random,
 };
-use cortex_m::interrupt::free;
 
 use embedded_hal::digital::v1_compat::OldOutputPin;
 use hal::ccm::{spi, PLL1};
 use mqtt::MqttClient;
-use teensy4_bsp::{SysTick, hal::{self, gpio::GPIO, iomuxc::gpio::Pin, ccm}, t40, usb, usb::LoggingConfig};
+use teensy4_bsp::{
+    hal::{self, ccm, gpio::GPIO, iomuxc::gpio::Pin},
+    t40, usb,
+    usb::LoggingConfig,
+    SysTick,
+};
 use uart::DmaUart;
 
 const LOG_LEVEL: log::LevelFilter = log::LevelFilter::Debug;
