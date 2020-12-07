@@ -482,6 +482,21 @@ mod tests {
         assert_eq!(TWO_TELEGRAMS.len(), read1 + read2);
     }
 
+    #[test]
+    fn incomplete_telegram_err_incomplete() {
+        for length in 0..EXAMPLE_TELEGRAM.len() {
+            let (read, res) = parse(&EXAMPLE_TELEGRAM[..length]);
+            match res {
+                Err(TelegramParseError::Incomplete) => {
+                },
+                other => {
+                    panic!("Expected incomplete but got {:?}", other);
+                }
+            }
+            assert_eq!(0, read);
+        }
+    }
+
 
     #[test]
     fn invalid_cosem_fails() {
@@ -497,11 +512,6 @@ mod tests {
         let res: TestResult<&str> = cosem()("(00.000*kW)");
         let (_, cosem) = res.unwrap();
         assert_eq!(cosem, "00.000*kW")
-    }
-
-    #[test]
-    fn incomplete_packet_err_incomplete() {
-        let (read, res) = parse(b"/XMX5LGBBFFB231237741\r\n\r\n1-3:0.2.8(");
     }
 
     #[test]
