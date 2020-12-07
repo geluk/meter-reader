@@ -262,16 +262,26 @@ fn raw_line(input: &str) -> IResult<&str, RawLine> {
 
     let mut cosem_arr = ArrayVec::<[&str; MAX_COSEM_PER_LINE]>::new();
 
-    while let Ok((next_input, cosem)) = cosem::<nom::error::Error<_>>()(input) {
-        input = next_input;
-        cosem_arr.try_push(cosem).map_err(|_| {
-            nom::Err::Error(nom::error::Error {
-                input,
-                code: nom::error::ErrorKind::TooLarge,
-            })
-        })?;
+    loop {
+        let res =  cosem::<nom::error::Error<_>>()(input);
+        match res {
+            Ok((next_input, cosem)) => {
+                input = next_input;
+                cosem_arr.try_push(cosem).map_err(|_| {
+                    nom::Err::Error(nom::error::Error {
+                        input,
+                        code: nom::error::ErrorKind::TooLarge,
+                    })
+                })?;
+            },
+            Err(e@nom::Err::Incomplete(_)) => {
+                return Err(e);
+            },
+            Err(err) => {
+                break;
+            }
+        }
     }
-
     let (input, _) = crlf(input)?;
     Ok((
         input,
@@ -486,6 +496,11 @@ mod tests {
         let res: TestResult<&str> = cosem()("(00.000*kW)");
         let (_, cosem) = res.unwrap();
         assert_eq!(cosem, "00.000*kW")
+    }
+
+    #[test]
+    fn incomplete_packet_err_incomplete() {
+        let (read, res) = parse(b"/XMX5LGBBFFB231237741\r\n\r\n1-3:0.2.8(");
     }
 
     #[test]
