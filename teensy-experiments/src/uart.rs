@@ -11,7 +11,7 @@ use teensy4_bsp::{
 };
 
 const DMA_RX_CHANNEL: usize = 7;
-const RX_RESERV: usize = 2;
+const RX_RESERV: usize = 1;
 const RX_BUF_SZ: usize = 64;
 
 type DmaPeripheral = dma::Peripheral<UART<consts::U2>, u8, dma::Linear<u8>, dma::Circular<u8>>;
