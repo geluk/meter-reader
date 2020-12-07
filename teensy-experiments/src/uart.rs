@@ -94,11 +94,6 @@ impl DmaUart {
                 halt!();
             }
         }
-        if self.read_buffer_pos > 0 {
-            let b = &self.read_buffer[0..self.read_buffer_pos];
-            log::debug!("Got message: {}", core::str::from_utf8(b).unwrap());
-            self.read_buffer_pos = 0;
-        }
     }
 
     pub fn get_buffer(&self) -> &[u8] {
