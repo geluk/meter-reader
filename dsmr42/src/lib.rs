@@ -389,6 +389,7 @@ fn crc16(data: &[u8]) -> u16 {
 }
 
 #[cfg(test)]
+#[macro_use]
 extern crate std;
 
 #[cfg(test)]
