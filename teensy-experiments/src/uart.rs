@@ -83,7 +83,7 @@ impl DmaUart {
 
             let end = self.read_buffer_pos + rx_buffer.len();
             for i in self.read_buffer_pos..end {
-                self.read_buffer[self.read_buffer_pos + i] = rx_buffer.pop().unwrap();
+                self.read_buffer[i] = rx_buffer.pop().unwrap();
             }
             self.read_buffer_pos = end;
 
