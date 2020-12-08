@@ -1,20 +1,22 @@
 #![allow(unused)]
-
 #![no_std]
 
+use core::{
+    fmt::{Display, Write},
+    num::ParseIntError,
+};
+
 use arrayvec::{ArrayString, ArrayVec};
-use core::{fmt::{Display, Write}, num::ParseIntError};
-use nom::bytes::streaming::take_while_m_n;
-use nom::error::FromExternalError;
-use nom::{branch::alt, character};
 use nom::{
-    bytes::streaming::{tag, take, take_until, take_while1},
-    character::streaming::hex_digit1,
-    character::streaming::{char, crlf, digit1},
+    branch::alt,
+    bytes::streaming::{tag, take, take_until, take_while1, take_while_m_n},
+    character::{
+        self,
+        streaming::{char, crlf, digit1, hex_digit1},
+    },
     combinator::{map_res, not, opt},
-    error::ParseError,
-    multi::fill,
-    multi::many0_count,
+    error::{FromExternalError, ParseError},
+    multi::{fill, many0_count},
     sequence::{delimited, pair, preceded, terminated},
     Compare, IResult, InputLength, InputTake, Parser,
 };
@@ -37,16 +39,24 @@ impl Telegram {
         for line in self.lines.iter() {
             match line {
                 Line::Version(version) => {
-                   write!(writer, "{}\"dsmr_version\": \"{}\"", separator, version);
+                    write!(writer, "{}\"dsmr_version\": \"{}\"", separator, version);
                 }
                 Line::Timestamp(ts) => {
-                   write!(writer, "{}\"timestamp\": \"{}\"", separator, ts);
+                    write!(writer, "{}\"timestamp\": \"{}\"", separator, ts);
                 }
                 Line::Consumed(tariff, power) => {
-                    write!(writer, "{}\"tariff_{}_consumed\": \"{}\"", separator, tariff, power);
+                    write!(
+                        writer,
+                        "{}\"tariff_{}_consumed\": \"{}\"",
+                        separator, tariff, power
+                    );
                 }
                 Line::Produced(tariff, power) => {
-                    write!(writer, "{}\"tariff_{}_produced\": \"{}\"", separator, tariff, power);
+                    write!(
+                        writer,
+                        "{}\"tariff_{}_produced\": \"{}\"",
+                        separator, tariff, power
+                    );
                 }
                 Line::ActiveTariff(tariff) => {
                     write!(writer, "{}\"active_tariff\": \"{}\"", separator, tariff);
@@ -61,7 +71,11 @@ impl Telegram {
                     write!(writer, "{}\"power_failures\": \"{}\"", separator, count);
                 }
                 Line::LongPowerFailures(count) => {
-                    write!(writer, "{}\"long_power_failures\": \"{}\"", separator, count);
+                    write!(
+                        writer,
+                        "{}\"long_power_failures\": \"{}\"",
+                        separator, count
+                    );
                 }
                 Line::VoltageSags(count) => {
                     write!(writer, "{}\"voltage_sags\": \"{}\"", separator, count);
@@ -70,21 +84,33 @@ impl Telegram {
                     write!(writer, "{}\"voltage_swells\": \"{}\"", separator, count);
                 }
                 Line::Current(phase, current) => {
-                    write!(writer, "{}\"{}_current\": \"{}\"", separator, phase, current);
+                    write!(
+                        writer,
+                        "{}\"{}_current\": \"{}\"",
+                        separator, phase, current
+                    );
                 }
                 Line::Consuming(phase, power) => {
-                    write!(writer, "{}\"{}_consuming\": \"{}\"", separator, phase, power);
+                    write!(
+                        writer,
+                        "{}\"{}_consuming\": \"{}\"",
+                        separator, phase, power
+                    );
                 }
                 Line::Producing(phase, power) => {
-                    write!(writer, "{}\"{}_producing\": \"{}\"", separator, phase, power);
+                    write!(
+                        writer,
+                        "{}\"{}_producing\": \"{}\"",
+                        separator, phase, power
+                    );
                 }
                 _ => {
                     // Do not write unknown lines
                 }
             }
             separator = ",";
-       }
-       write!(writer, "}}");
+        }
+        write!(writer, "}}");
     }
 }
 
@@ -107,7 +133,11 @@ pub struct Timestamp {
 
 impl Display for Timestamp {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}", self.year, self.month, self.day, self.hour, self.minute, self.second)?;
+        write!(
+            f,
+            "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}",
+            self.year, self.month, self.day, self.hour, self.minute, self.second
+        )?;
         if self.dst {
             write!(f, "+02:00")
         } else {
@@ -132,7 +162,6 @@ impl Display for Phase {
         }
     }
 }
-
 
 #[derive(Debug)]
 pub enum Line {
@@ -213,7 +242,7 @@ fn telegram<'a>(
     mut line_buffer: ArrayVec<[Line; MAX_LINES_PER_TELEGRAM]>,
 ) -> IResult<&'a str, Telegram> {
     let (input, device_id) = device_id(input)?;
-    
+
     let device_id = ArrayString::from(device_id).map_err(|_| {
         nom::Err::Error(nom::error::Error {
             input,
@@ -332,7 +361,7 @@ fn timestamp(input: &str) -> IResult<&str, Timestamp> {
     let (input, hour) = u8_complete(input)?;
     let (input, minute) = u8_complete(input)?;
     let (input, second) = u8_complete(input)?;
-    let (input, dst) = alt((char('S'),char('W')))(input)?;
+    let (input, dst) = alt((char('S'), char('W')))(input)?;
 
     Ok((
         input,
@@ -354,7 +383,7 @@ fn raw_line(input: &str) -> IResult<&str, RawLine> {
     let mut cosem_arr = ArrayVec::<[&str; MAX_COSEM_PER_LINE]>::new();
 
     loop {
-        let res =  cosem::<nom::error::Error<_>>()(input);
+        let res = cosem::<nom::error::Error<_>>()(input);
         match res {
             Ok((next_input, cosem)) => {
                 input = next_input;
@@ -364,10 +393,10 @@ fn raw_line(input: &str) -> IResult<&str, RawLine> {
                         code: nom::error::ErrorKind::TooLarge,
                     })
                 })?;
-            },
-            Err(e@nom::Err::Incomplete(_)) => {
+            }
+            Err(e @ nom::Err::Incomplete(_)) => {
                 return Err(e);
-            },
+            }
             Err(err) => {
                 break;
             }
@@ -486,8 +515,8 @@ extern crate std;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::string::String;
     use nom::{error::ErrorKind, multi::fill, Err};
+    use std::string::String;
     type TestResult<'a, O> = IResult<&'a str, O, nom::error::Error<&'a str>>;
 
     const EXAMPLE_TELEGRAM: &[u8] = b"/XMX5LGBBFFB231237741\r\n\r\n\
@@ -588,8 +617,7 @@ mod tests {
         for length in 0..EXAMPLE_TELEGRAM.len() {
             let (read, res) = parse(&EXAMPLE_TELEGRAM[..length]);
             match res {
-                Err(TelegramParseError::Incomplete) => {
-                },
+                Err(TelegramParseError::Incomplete) => {}
                 other => {
                     panic!("Expected incomplete but got {:?}", other);
                 }
