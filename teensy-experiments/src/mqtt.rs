@@ -1,4 +1,5 @@
 use core::fmt::{Debug, Display};
+use dsmr42::Telegram;
 use embedded_mqtt::{
     codec::{Decodable, Encodable},
     fixed_header::PacketType,
@@ -51,7 +52,7 @@ pub struct MqttClient {
     next_backoff: u32,
     current_backoff: u32,
     mqtt_state: MqttState,
-    pub_sent: bool,
+    queued_telegram: Option<Telegram>,
 }
 
 impl TcpClient for MqttClient {
@@ -120,9 +121,8 @@ impl TcpClient for MqttClient {
             match self.mqtt_state {
                 MqttState::Unconnected => self.connect_mqtt(socket),
                 MqttState::Connected => {
-                    if !self.pub_sent {
-                        self.pub_sent = true;
-                        self.send_pub(socket);
+                    if let Some(telegram) = self.queued_telegram.take() {
+                        self.send_telegram(socket, telegram);
                     }
                 }
                 _ => {}
@@ -139,11 +139,9 @@ impl MqttClient {
             next_backoff: INITIAL_BACKOFF,
             current_backoff: 0,
             mqtt_state: MqttState::Unconnected,
-            pub_sent: false,
+            queued_telegram: None,
         }
     }
-
-    pub fn do_work(&mut self) {}
 
     fn connect_mqtt(&mut self, socket: SocketRef<TcpSocket>) {
         log::debug!("Creating MQTT connect request");
@@ -167,12 +165,20 @@ impl MqttClient {
         }
     }
 
-    fn send_pub(&mut self, socket: SocketRef<TcpSocket>) {
-        let header = variable_header::publish::Publish::new("smart_meter/test", None);
+    pub fn queue_telegram(&mut self, telegram: Telegram) {
+        self.queued_telegram = Some(telegram);
+    }
+
+    fn send_telegram(&mut self, socket: SocketRef<TcpSocket>, telegram: Telegram) {
+        self.send_pub(socket, "smart_meter/telegram", telegram.device_id.as_bytes());
+    }
+
+    fn send_pub(&mut self, socket: SocketRef<TcpSocket>, topic: &str, payload: &[u8]) {
+        let header = variable_header::publish::Publish::new(topic, None);
 
         let mut flags = PublishFlags::default();
         flags.set_retain(true);
-        match Packet::publish(flags, header, "HELLO THERE".as_bytes())
+        match Packet::publish(flags, header, payload)
             .map(|p| self.send_packet(socket, p))
         {
             Err(err) => log::warn!("Failed to encode publish packet: {}", err),
