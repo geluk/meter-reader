@@ -2,7 +2,7 @@
 
 #![no_std]
 
-use arrayvec::ArrayVec;
+use arrayvec::{ArrayString, ArrayVec};
 use core::num::ParseIntError;
 use nom::bytes::streaming::take_while_m_n;
 use nom::error::FromExternalError;
@@ -23,10 +23,10 @@ const MAX_COSEM_PER_LINE: usize = 16;
 const MAX_LINES_PER_TELEGRAM: usize = 32;
 
 #[derive(Debug)]
-pub struct Telegram<'a> {
-    device_id: &'a str,
-    lines: ArrayVec<[Line; MAX_LINES_PER_TELEGRAM]>,
-    crc: u16,
+pub struct Telegram {
+    pub device_id: ArrayString<[u8; 32]>,
+    pub lines: ArrayVec<[Line; MAX_LINES_PER_TELEGRAM]>,
+    pub crc: u16,
 }
 
 #[derive(Debug)]
@@ -129,8 +129,15 @@ pub fn parse(input: &[u8]) -> (usize, Result<Telegram, TelegramParseError>) {
 fn telegram<'a>(
     input: &'a str,
     mut line_buffer: ArrayVec<[Line; MAX_LINES_PER_TELEGRAM]>,
-) -> IResult<&'a str, Telegram<'a>> {
+) -> IResult<&'a str, Telegram> {
     let (input, device_id) = device_id(input)?;
+    
+    let device_id = ArrayString::from(device_id).map_err(|_| {
+        nom::Err::Error(nom::error::Error {
+            input,
+            code: nom::error::ErrorKind::TooLarge,
+        })
+    })?;
 
     let crc_val: u16;
     let mut next_input = input;
