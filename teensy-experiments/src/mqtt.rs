@@ -174,6 +174,7 @@ impl MqttClient {
     }
 
     fn send_pub(&mut self, socket: SocketRef<TcpSocket>, topic: &str, payload: &[u8]) {
+        log::info!("Publishing to {}", topic);
         let header = variable_header::publish::Publish::new(topic, None);
 
         let mut flags = PublishFlags::default();

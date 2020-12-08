@@ -137,6 +137,7 @@ fn main() -> ! {
     let stack_top_addr = (&stack_top as *const u8) as usize;
     log::info!("STACK_SZE: {}K", (stack_top_addr - stack_bot_addr) / 1024);
 
+    log::info!("Entering main loop");
     loop {
         dma_uart.poll();
         network.poll(&mut clock, &mut random);
@@ -144,7 +145,7 @@ fn main() -> ! {
         let (read, res) = dsmr42::parse(&dma_uart.get_buffer());
         match res {
             Ok(telegram) => {
-                log::info!("Got new telegram: {:#?}", telegram);
+                log::info!("Got new telegram: {}", telegram.device_id);
                 client.queue_telegram(telegram);
             }
             Err(dsmr42::TelegramParseError::Incomplete) => {
@@ -155,7 +156,7 @@ fn main() -> ! {
             }
         }
         if read > 0 {
-            log::info!("Consuming {} byte of {}", read, dma_uart.get_buffer().len());
+            log::info!("Consuming {} bytes of {}", read, dma_uart.get_buffer().len());
             dma_uart.consume(read);
         }
     }
