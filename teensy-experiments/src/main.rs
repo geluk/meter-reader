@@ -145,12 +145,9 @@ fn main() -> ! {
         match res {
             Ok(telegram) => {
                 log::info!("Got new telegram: {:#?}", telegram);
+                client.queue_telegram(telegram);
             }
             Err(dsmr42::TelegramParseError::Incomplete) => {
-                let buffer = dma_uart.get_buffer();
-                if buffer.len() > 0 {
-                    //log::info!("Incomplete buffer: {} bytes", buffer.len());
-                }
             }
             Err(err) => {
                 let buffer = dma_uart.get_buffer();
