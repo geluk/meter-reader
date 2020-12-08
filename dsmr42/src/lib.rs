@@ -43,6 +43,7 @@ pub struct Timestamp {
     hour: u8,
     minute: u8,
     second: u8,
+    dst: bool,
 }
 
 #[derive(Debug)]
@@ -250,6 +251,7 @@ fn timestamp(input: &str) -> IResult<&str, Timestamp> {
     let (input, hour) = u8_complete(input)?;
     let (input, minute) = u8_complete(input)?;
     let (input, second) = u8_complete(input)?;
+    let (input, dst) = alt((char('S'),char('W')))(input)?;
 
     Ok((
         input,
@@ -260,6 +262,7 @@ fn timestamp(input: &str) -> IResult<&str, Timestamp> {
             hour,
             minute,
             second,
+            dst: dst == 'S',
         },
     ))
 }
