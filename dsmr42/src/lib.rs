@@ -512,7 +512,7 @@ mod tests {
             line_buffer,
         );
         let (rem, tel) = res.unwrap();
-        assert_eq!("XMX1000", tel.device_id);
+        assert_eq!("XMX1000", tel.device_id.as_str());
         assert_eq!(2, tel.lines.len());
         assert_eq!(65535, tel.crc);
     }
