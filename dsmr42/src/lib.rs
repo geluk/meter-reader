@@ -3,7 +3,7 @@
 #![no_std]
 
 use arrayvec::{ArrayString, ArrayVec};
-use core::num::ParseIntError;
+use core::{fmt::{Display, Write}, num::ParseIntError};
 use nom::bytes::streaming::take_while_m_n;
 use nom::error::FromExternalError;
 use nom::{branch::alt, character};
@@ -29,6 +29,65 @@ pub struct Telegram {
     pub crc: u16,
 }
 
+impl Telegram {
+    pub fn serialize<W: Write>(&self, writer: &mut W) {
+        // Poor man's JSON
+        write!(writer, "{{");
+        let mut separator = "";
+        for line in self.lines.iter() {
+            match line {
+                Line::Version(version) => {
+                   write!(writer, "{}\"dsmr_version\": \"{}\"", separator, version);
+                }
+                Line::Timestamp(ts) => {
+                   write!(writer, "{}\"timestamp\": \"{}\"", separator, ts);
+                }
+                Line::Consumed(tariff, power) => {
+                    write!(writer, "{}\"tariff_{}_consumed\": \"{}\"", separator, tariff, power);
+                }
+                Line::Produced(tariff, power) => {
+                    write!(writer, "{}\"tariff_{}_produced\": \"{}\"", separator, tariff, power);
+                }
+                Line::ActiveTariff(tariff) => {
+                    write!(writer, "{}\"active_tariff\": \"{}\"", separator, tariff);
+                }
+                Line::TotalConsuming(power) => {
+                    write!(writer, "{}\"total_consuming\": \"{}\"", separator, power);
+                }
+                Line::TotalProducing(power) => {
+                    write!(writer, "{}\"total_consuming\": \"{}\"", separator, power);
+                }
+                Line::PowerFailures(count) => {
+                    write!(writer, "{}\"power_failures\": \"{}\"", separator, count);
+                }
+                Line::LongPowerFailures(count) => {
+                    write!(writer, "{}\"long_power_failures\": \"{}\"", separator, count);
+                }
+                Line::VoltageSags(count) => {
+                    write!(writer, "{}\"voltage_sags\": \"{}\"", separator, count);
+                }
+                Line::VoltageSwells(count) => {
+                    write!(writer, "{}\"voltage_swells\": \"{}\"", separator, count);
+                }
+                Line::Current(phase, current) => {
+                    write!(writer, "{}\"{}_current\": \"{}\"", separator, phase, current);
+                }
+                Line::Consuming(phase, power) => {
+                    write!(writer, "{}\"{}_consuming\": \"{}\"", separator, phase, power);
+                }
+                Line::Producing(phase, power) => {
+                    write!(writer, "{}\"{}_producing\": \"{}\"", separator, phase, power);
+                }
+                _ => {
+                    // Do not write unknown lines
+                }
+            }
+            separator = ",";
+       }
+       write!(writer, "}}");
+    }
+}
+
 #[derive(Debug)]
 pub struct RawLine<'a> {
     obis: [u8; 6],
@@ -46,12 +105,34 @@ pub struct Timestamp {
     dst: bool,
 }
 
+impl Display for Timestamp {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}", self.year, self.month, self.day, self.hour, self.minute, self.second)?;
+        if self.dst {
+            write!(f, "+02:00")
+        } else {
+            write!(f, "+01:00")
+        }
+    }
+}
+
 #[derive(Debug)]
 pub enum Phase {
     L1,
     L2,
     L3,
 }
+
+impl Display for Phase {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Phase::L1 => write!(f, "l1"),
+            Phase::L2 => write!(f, "l2"),
+            Phase::L3 => write!(f, "l3"),
+        }
+    }
+}
+
 
 #[derive(Debug)]
 pub enum Line {
@@ -405,6 +486,7 @@ extern crate std;
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::string::String;
     use nom::{error::ErrorKind, multi::fill, Err};
     type TestResult<'a, O> = IResult<&'a str, O, nom::error::Error<&'a str>>;
 
@@ -474,6 +556,15 @@ mod tests {
     1-0:21.7.0(00.329*kW)\r\n\
     1-0:22.7.0(00.000*kW)\r\n\
     !6130\r\n";
+
+    #[test]
+    fn test_serialize() {
+        let (read, res) = parse(EXAMPLE_TELEGRAM);
+        let res = res.unwrap();
+        let mut s = String::new();
+        res.serialize(&mut s);
+        println!("{}", s);
+    }
 
     #[test]
     fn telegram_parses() {
