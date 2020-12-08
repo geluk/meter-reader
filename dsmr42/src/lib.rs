@@ -337,7 +337,7 @@ fn timestamp(input: &str) -> IResult<&str, Timestamp> {
     Ok((
         input,
         Timestamp {
-            year: year as u16,
+            year: year as u16 + 2000,
             month,
             day,
             hour,
