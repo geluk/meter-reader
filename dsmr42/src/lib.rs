@@ -39,7 +39,7 @@ impl Telegram {
         for line in self.lines.iter() {
             match line {
                 Line::Version(version) => {
-                    write!(writer, "{}\"dsmr_version\": \"{}\"", separator, version);
+                    write!(writer, "{}\"dsmr_version\": {}", separator, version);
                 }
                 Line::Timestamp(ts) => {
                     write!(writer, "{}\"timestamp\": \"{}\"", separator, ts);
@@ -47,62 +47,46 @@ impl Telegram {
                 Line::Consumed(tariff, power) => {
                     write!(
                         writer,
-                        "{}\"tariff_{}_consumed\": \"{}\"",
+                        "{}\"tariff_{}_consumed\": {}",
                         separator, tariff, power
                     );
                 }
                 Line::Produced(tariff, power) => {
                     write!(
                         writer,
-                        "{}\"tariff_{}_produced\": \"{}\"",
+                        "{}\"tariff_{}_produced\": {}",
                         separator, tariff, power
                     );
                 }
                 Line::ActiveTariff(tariff) => {
-                    write!(writer, "{}\"active_tariff\": \"{}\"", separator, tariff);
+                    write!(writer, "{}\"active_tariff\": {}", separator, tariff);
                 }
                 Line::TotalConsuming(power) => {
-                    write!(writer, "{}\"total_consuming\": \"{}\"", separator, power);
+                    write!(writer, "{}\"total_consuming\": {}", separator, power);
                 }
                 Line::TotalProducing(power) => {
-                    write!(writer, "{}\"total_consuming\": \"{}\"", separator, power);
+                    write!(writer, "{}\"total_producing\": {}", separator, power);
                 }
                 Line::PowerFailures(count) => {
-                    write!(writer, "{}\"power_failures\": \"{}\"", separator, count);
+                    write!(writer, "{}\"power_failures\": {}", separator, count);
                 }
                 Line::LongPowerFailures(count) => {
-                    write!(
-                        writer,
-                        "{}\"long_power_failures\": \"{}\"",
-                        separator, count
-                    );
+                    write!(writer, "{}\"long_power_failures\": {}", separator, count);
                 }
                 Line::VoltageSags(count) => {
-                    write!(writer, "{}\"voltage_sags\": \"{}\"", separator, count);
+                    write!(writer, "{}\"voltage_sags\": {}", separator, count);
                 }
                 Line::VoltageSwells(count) => {
-                    write!(writer, "{}\"voltage_swells\": \"{}\"", separator, count);
+                    write!(writer, "{}\"voltage_swells\": {}", separator, count);
                 }
                 Line::Current(phase, current) => {
-                    write!(
-                        writer,
-                        "{}\"{}_current\": \"{}\"",
-                        separator, phase, current
-                    );
+                    write!(writer, "{}\"{}_current\": {}", separator, phase, current);
                 }
                 Line::Consuming(phase, power) => {
-                    write!(
-                        writer,
-                        "{}\"{}_consuming\": \"{}\"",
-                        separator, phase, power
-                    );
+                    write!(writer, "{}\"{}_consuming\": {}", separator, phase, power);
                 }
                 Line::Producing(phase, power) => {
-                    write!(
-                        writer,
-                        "{}\"{}_producing\": \"{}\"",
-                        separator, phase, power
-                    );
+                    write!(writer, "{}\"{}_producing\": {}", separator, phase, power);
                 }
                 _ => {
                     // Do not write unknown lines
@@ -317,7 +301,7 @@ fn line(input: &str) -> IResult<&str, Line> {
     let (input, raw) = raw_line(input)?;
 
     let line = match raw.obis {
-        [1, 3, 0, 2, 8, 255] => Line::Version(map_cosem(raw.cosem.get(0), u8_complete)?),
+        [1, 3, 0, 2, 8, 255] => Line::Version(map_cosem(raw.cosem.get(0), u8_complete(2))?),
         [0, 0, 1, 0, 0, 255] => Line::Timestamp(map_cosem(raw.cosem.get(0), timestamp)?),
         [0, 0, 96, 1, 1, 255] => Line::EquipmentId,
         [1, 0, 1, 8, tariff, 255] => {
@@ -326,22 +310,26 @@ fn line(input: &str) -> IResult<&str, Line> {
         [1, 0, 2, 8, tariff, 255] => {
             Line::Produced(tariff, map_cosem(raw.cosem.get(0), fixed_point(6, 3))?)
         }
-        [0, 0, 96, 14, 0, 255] => Line::ActiveTariff(map_cosem(raw.cosem.get(0), u8_complete)?),
+        [0, 0, 96, 14, 0, 255] => Line::ActiveTariff(map_cosem(raw.cosem.get(0), u8_complete(4))?),
         [1, 0, 1, 7, 0, 255] => {
             Line::TotalConsuming(map_cosem(raw.cosem.get(0), fixed_point(2, 3))?)
         }
         [1, 0, 2, 7, 0, 255] => {
             Line::TotalProducing(map_cosem(raw.cosem.get(0), fixed_point(2, 3))?)
         }
-        [0, 0, 96, 7, 21, 255] => Line::PowerFailures(map_cosem(raw.cosem.get(0), u32_complete)?),
+        [0, 0, 96, 7, 21, 255] => {
+            Line::PowerFailures(map_cosem(raw.cosem.get(0), u32_complete(5))?)
+        }
         [0, 0, 96, 7, 9, 255] => {
-            Line::LongPowerFailures(map_cosem(raw.cosem.get(0), u32_complete)?)
+            Line::LongPowerFailures(map_cosem(raw.cosem.get(0), u32_complete(5))?)
         }
         [1, 0, 99, 97, 0, 255] => Line::PowerFailureLog,
-        [1, 0, 32, 32, 0, 255] => Line::VoltageSags(map_cosem(raw.cosem.get(0), u32_complete)?),
-        [1, 0, 32, 36, 0, 255] => Line::VoltageSwells(map_cosem(raw.cosem.get(0), u32_complete)?),
-        [1, 0, 31, 7, 1, 255] => {
-            Line::Current(Phase::L1, map_cosem(raw.cosem.get(0), u32_complete)?)
+        [1, 0, 32, 32, 0, 255] => Line::VoltageSags(map_cosem(raw.cosem.get(0), u32_complete(5))?),
+        [1, 0, 32, 36, 0, 255] => {
+            Line::VoltageSwells(map_cosem(raw.cosem.get(0), u32_complete(5))?)
+        }
+        [1, 0, 31, 7, 0, 255] => {
+            Line::Current(Phase::L1, map_cosem(raw.cosem.get(0), u32_complete(3))?)
         }
         [1, 0, 21, 7, 0, 255] => {
             Line::Producing(Phase::L1, map_cosem(raw.cosem.get(0), fixed_point(2, 3))?)
@@ -355,12 +343,12 @@ fn line(input: &str) -> IResult<&str, Line> {
 }
 
 fn timestamp(input: &str) -> IResult<&str, Timestamp> {
-    let (input, year) = u8_complete(input)?;
-    let (input, month) = u8_complete(input)?;
-    let (input, day) = u8_complete(input)?;
-    let (input, hour) = u8_complete(input)?;
-    let (input, minute) = u8_complete(input)?;
-    let (input, second) = u8_complete(input)?;
+    let (input, year) = u8_complete(2)(input)?;
+    let (input, month) = u8_complete(2)(input)?;
+    let (input, day) = u8_complete(2)(input)?;
+    let (input, hour) = u8_complete(2)(input)?;
+    let (input, minute) = u8_complete(2)(input)?;
+    let (input, second) = u8_complete(2)(input)?;
     let (input, dst) = alt((char('S'), char('W')))(input)?;
 
     Ok((
@@ -434,16 +422,24 @@ fn u8(input: &str) -> IResult<&str, u8> {
     map_res(digit1, |s: &str| s.parse())(input)
 }
 
-fn u8_complete(input: &str) -> IResult<&str, u8> {
-    map_res(take_while_m_n(2, 2, |c: char| c.is_digit(10)), |s: &str| {
-        s.parse()
-    })(input)
+fn u8_complete<'a, E>(digits: usize) -> impl FnMut(&'a str) -> IResult<&str, u8, E>
+where
+    E: ParseError<&'a str> + FromExternalError<&'a str, ParseIntError>,
+{
+    map_res(
+        nom::bytes::complete::take_while_m_n(digits, digits, |c: char| c.is_digit(10)),
+        |s: &str| s.parse(),
+    )
 }
 
-fn u32_complete(input: &str) -> IResult<&str, u32> {
-    map_res(take_while_m_n(2, 2, |c: char| c.is_digit(10)), |s: &str| {
-        s.parse()
-    })(input)
+fn u32_complete<'a, E>(digits: usize) -> impl FnMut(&'a str) -> IResult<&str, u32, E>
+where
+    E: ParseError<&'a str> + FromExternalError<&'a str, ParseIntError>,
+{
+    map_res(
+        nom::bytes::complete::take_while_m_n(digits, digits, |c: char| c.is_digit(10)),
+        |s: &str| s.parse(),
+    )
 }
 
 fn fixed_point<'a, E>(
@@ -600,6 +596,7 @@ mod tests {
         let (read, res) = parse(EXAMPLE_TELEGRAM);
         let res = res.unwrap();
         assert_eq!(EXAMPLE_TELEGRAM.len(), read);
+        println!("{:?}", res);
     }
 
     #[test]
@@ -700,6 +697,13 @@ mod tests {
         let (rem, obis) = res.unwrap();
         assert_eq!("()", rem);
         assert_eq!([255, 255, 0, 1, 0, 18], obis)
+    }
+
+    #[test]
+    fn u8_complete_parses() {
+        let res: TestResult<u8> = u8_complete(2)("38");
+        let (rem, val) = res.unwrap();
+        assert_eq!(38, val);
     }
 
     #[test]
