@@ -1,4 +1,5 @@
-use core::fmt::{Debug, Display};
+use core::fmt::{Debug, Display, Write};
+use arrayvec::ArrayString;
 use dsmr42::Telegram;
 use embedded_mqtt::{
     codec::{Decodable, Encodable},
@@ -170,7 +171,13 @@ impl MqttClient {
     }
 
     fn send_telegram(&mut self, socket: SocketRef<TcpSocket>, telegram: Telegram) {
-        self.send_pub(socket, "smart_meter/telegram", telegram.device_id.as_bytes());
+        let mut topic = ArrayString::<[_; 64]>::new();
+        let mut content = ArrayString::<[_; 512]>::new();
+
+        write!(&mut topic, "smart_meter/{}", telegram.device_id);
+        telegram.serialize(&mut content);
+
+        self.send_pub(socket, topic.as_str(), content.as_bytes());
     }
 
     fn send_pub(&mut self, socket: SocketRef<TcpSocket>, topic: &str, payload: &[u8]) {
