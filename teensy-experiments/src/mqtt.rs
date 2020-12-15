@@ -181,7 +181,7 @@ impl MqttClient {
     }
 
     fn send_pub(&mut self, socket: SocketRef<TcpSocket>, topic: &str, payload: &[u8]) {
-        log::info!("Publishing to {}", topic);
+        log::info!("Publishing {} bytes to {}", payload.len(), topic);
         let header = variable_header::publish::Publish::new(topic, None);
 
         let mut flags = PublishFlags::default();
@@ -191,7 +191,7 @@ impl MqttClient {
         {
             Err(err) => log::warn!("Failed to encode publish packet: {}", err),
             Ok(Err(err)) => log::warn!("Failed to send publish packet: {}", err),
-            _ => (),
+            Ok(Ok(())) => {},
         }
     }
 
@@ -200,13 +200,16 @@ impl MqttClient {
         mut socket: SocketRef<TcpSocket>,
         packet: Packet,
     ) -> smoltcp::Result<()> {
-        log::trace!(
-            "Sending {:?}: {:#?}",
+        log::info!(
+            "Sending {:?}: {:?}",
             packet.fixed_header().r#type(),
             packet
         );
         socket.send(|buf| match packet.encode(buf) {
-            Ok(bytes) => (bytes, ()),
+            Ok(bytes) => {
+                log::info!("Sent {} bytes", bytes);
+                (bytes, ())
+            },
             Err(err) => {
                 log::warn!("Failed to decode connect packet: {}", err);
                 (0, ())
