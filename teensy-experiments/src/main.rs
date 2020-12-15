@@ -7,7 +7,7 @@ mod macros;
 mod mqtt;
 mod network;
 mod random;
-mod uart;
+mod dma_uart;
 
 use core::panic::PanicInfo;
 use core::sync::atomic::{self, Ordering};
@@ -41,7 +41,7 @@ use teensy4_bsp::{
     usb::LoggingConfig,
     SysTick,
 };
-use uart::DmaUart;
+use dma_uart::DmaUart;
 
 const LOG_LEVEL: log::LevelFilter = log::LevelFilter::Debug;
 const SPI_BAUD_RATE_HZ: u32 = 16_000_000;
