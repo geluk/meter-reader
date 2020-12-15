@@ -102,8 +102,16 @@ impl DmaUart {
 
     /// Advances the read buffer by `count` bytes.
     pub fn consume(&mut self, count: usize) {
+        let count = count.min(self.read_buffer_pos);
         self.read_buffer.copy_within(count.., 0);
+
+        let prev_len = self.read_buffer_pos;
         self.read_buffer_pos -= count;
+    }
+
+    pub fn clear(&mut self) {
+        self.read_buffer = [0; 1024];
+        self.read_buffer_pos = 0;
     }
 }
 

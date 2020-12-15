@@ -153,10 +153,10 @@ fn main() -> ! {
             Err(err) => {
                 let buffer = dma_uart.get_buffer();
                 log::warn!("Failed to parse telegram ({} bytes): {:?}, buffer: {:?}", buffer.len(), err, core::str::from_utf8(buffer));
+                dma_uart.clear();
             }
         }
         if read > 0 {
-            log::info!("Consuming {} bytes of {}", read, dma_uart.get_buffer().len());
             dma_uart.consume(read);
         }
     }
