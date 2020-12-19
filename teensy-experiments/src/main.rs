@@ -44,7 +44,7 @@ use teensy4_bsp::{
 use uart::DsmrUart;
 
 const LOG_LEVEL: log::LevelFilter = log::LevelFilter::Debug;
-const SPI_BAUD_RATE_HZ: u32 = 16_000_000;
+const SPI_CLOCK_HZ: u32 = 16_000_000;
 const DSMR_42_BAUD: u32 = 115200;
 const ETH_ADDR: [u8; 6] = [0xEE, 0x00, 0x00, 0x0E, 0x4C, 0xA2];
 
@@ -102,13 +102,13 @@ fn main() -> ! {
         .init(pins.p14, pins.p15, DSMR_42_BAUD)
         .unwrap_or_else(|err| {
             log::error!("Failed to configure UART: {:?}", err);
-            halt!();
+            panic!();
         });
 
     // Set SPI clock speed.
-    match spi4.set_clock_speed(hal::spi::ClockSpeed(SPI_BAUD_RATE_HZ)) {
+    match spi4.set_clock_speed(hal::spi::ClockSpeed(SPI_CLOCK_HZ)) {
         Ok(()) => {
-            log::info!("Set SPI clock speed to {} Hz", SPI_BAUD_RATE_HZ);
+            log::info!("Set SPI clock speed to {} Hz", SPI_CLOCK_HZ);
         }
         Err(err) => {
             log::warn!("Unable to set SPI clock speed: {:?}", err);
