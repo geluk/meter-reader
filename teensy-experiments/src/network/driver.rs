@@ -141,6 +141,8 @@ impl<'a, D: 'a + Driver> phy::Device<'a> for Enc28j60Phy<D> {
     type RxToken = Enc28j60RxToken<'a>;
     type TxToken = Enc28j60TxToken<'a, D>;
 
+    // DeviceCapabilities contains a private field, so we can't apply this suggestion
+    #[allow(clippy::field_reassign_with_default)]
     fn capabilities(&self) -> DeviceCapabilities {
         let mut caps = DeviceCapabilities::default();
         caps.max_transmission_unit = TX_BUF;

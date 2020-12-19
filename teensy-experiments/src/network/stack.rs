@@ -103,7 +103,7 @@ impl<'store, D: Driver> NetworkStack<'store, D> {
         client.set_socket_handle(self.sockets.add(socket));
     }
 
-    pub fn poll(&mut self, clock: &mut Clock, random: &mut Random) -> Option<i64> {
+    pub fn poll(&mut self, clock: &mut Clock) -> Option<i64> {
         match self.interface.poll(&mut self.sockets, clock.instant()) {
             Ok(processed) if processed => {
                 log::trace!("Processed/emitted new packets during polling");

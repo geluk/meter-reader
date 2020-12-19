@@ -140,7 +140,7 @@ fn main() -> ! {
     log::info!("Entering main loop");
     loop {
         dma_uart.poll();
-        network.poll(&mut clock, &mut random);
+        network.poll(&mut clock);
         network.poll_client(&mut random, &mut client);
         let (read, res) = dsmr42::parse(&dma_uart.get_buffer());
         match res {
