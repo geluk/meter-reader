@@ -8,17 +8,6 @@ mod panic;
 mod random;
 mod uart;
 
-use crate::{
-    clock::Clock,
-    hal::gpio::Output,
-    network::{
-        client::TcpClientStore,
-        driver::{create_enc28j60, Enc28j60Phy},
-        stack::NetworkStack,
-    },
-    random::Random,
-};
-
 use embedded_hal::digital::v1_compat::OldOutputPin;
 use hal::ccm::{spi, PLL1};
 use mqtt::MqttClient;
@@ -28,7 +17,18 @@ use teensy4_bsp::{
     usb::LoggingConfig,
     SysTick,
 };
-use uart::DsmrUart;
+
+use crate::{
+    clock::Clock,
+    hal::gpio::Output,
+    network::{
+        client::TcpClientStore,
+        driver::{create_enc28j60, Enc28j60Phy},
+        stack::NetworkStack,
+    },
+    random::Random,
+    uart::DsmrUart,
+};
 
 const LOG_LEVEL: log::LevelFilter = log::LevelFilter::Debug;
 const SPI_CLOCK_HZ: u32 = 16_000_000;

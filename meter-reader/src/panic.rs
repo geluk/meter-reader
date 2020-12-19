@@ -1,5 +1,7 @@
-use core::panic::PanicInfo;
-use core::sync::atomic::{self, Ordering};
+use core::{
+    panic::PanicInfo,
+    sync::atomic::{self, Ordering},
+};
 
 #[inline(never)]
 #[panic_handler]

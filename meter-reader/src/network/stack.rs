@@ -1,18 +1,15 @@
 #![allow(deprecated)] // Required because enc28j60 depends on v1.
 
-use smoltcp::dhcp::Dhcpv4Config;
-use smoltcp::iface::Neighbor;
-use smoltcp::iface::Route;
-use smoltcp::socket::SocketSetItem;
-
-use crate::{clock::Clock, network::driver::Driver, Enc28j60Phy, Random};
 use smoltcp::{
-    dhcp::Dhcpv4Client,
-    iface::EthernetInterface,
-    iface::{EthernetInterfaceBuilder, NeighborCache, Routes},
-    socket::{RawPacketMetadata, RawSocketBuffer, SocketSet, TcpSocket, TcpSocketBuffer},
+    dhcp::{Dhcpv4Client, Dhcpv4Config},
+    iface::{EthernetInterface, EthernetInterfaceBuilder, Neighbor, NeighborCache, Route, Routes},
+    socket::{
+        RawPacketMetadata, RawSocketBuffer, SocketSet, SocketSetItem, TcpSocket, TcpSocketBuffer,
+    },
     wire::{EthernetAddress, IpAddress, IpCidr, Ipv4Address},
 };
+
+use crate::{clock::Clock, network::driver::Driver, Enc28j60Phy, Random};
 
 use super::client::{TcpClient, TcpClientStore};
 
