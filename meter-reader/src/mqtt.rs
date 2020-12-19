@@ -1,5 +1,5 @@
-use core::fmt::{Debug, Display, Write};
 use arrayvec::ArrayString;
+use core::fmt::{Debug, Display, Write};
 use dsmr42::Telegram;
 use embedded_mqtt::{
     codec::{Decodable, Encodable},
@@ -187,12 +187,10 @@ impl MqttClient {
 
         let mut flags = PublishFlags::default();
         flags.set_retain(true);
-        match Packet::publish(flags, header, payload)
-            .map(|p| self.send_packet(socket, p))
-        {
+        match Packet::publish(flags, header, payload).map(|p| self.send_packet(socket, p)) {
             Err(err) => log::warn!("Failed to encode publish packet: {}", err),
             Ok(Err(err)) => log::warn!("Failed to send publish packet: {}", err),
-            Ok(Ok(())) => {},
+            Ok(Ok(())) => {}
         }
     }
 
@@ -201,16 +199,12 @@ impl MqttClient {
         mut socket: SocketRef<TcpSocket>,
         packet: Packet,
     ) -> smoltcp::Result<()> {
-        log::info!(
-            "Sending {:?}: {:?}",
-            packet.fixed_header().r#type(),
-            packet
-        );
+        log::info!("Sending {:?}: {:?}", packet.fixed_header().r#type(), packet);
         socket.send(|buf| match packet.encode(buf) {
             Ok(bytes) => {
                 log::info!("Sent {} bytes", bytes);
                 (bytes, ())
-            },
+            }
             Err(err) => {
                 log::warn!("Failed to decode connect packet: {}", err);
                 (0, ())

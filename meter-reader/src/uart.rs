@@ -30,7 +30,7 @@ impl DsmrUart {
                 Err(nb::Error::Other(e)) => {
                     log::warn!("Error during polling: {:?}", e);
                     break;
-                },
+                }
             }
         }
     }

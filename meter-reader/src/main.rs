@@ -148,11 +148,15 @@ fn main() -> ! {
                 log::info!("Got new telegram: {}", telegram.device_id);
                 client.queue_telegram(telegram);
             }
-            Err(dsmr42::TelegramParseError::Incomplete) => {
-            }
+            Err(dsmr42::TelegramParseError::Incomplete) => {}
             Err(err) => {
                 let buffer = dsmr_uart.get_buffer();
-                log::warn!("Failed to parse telegram ({} bytes): {:?}, buffer: {:?}", buffer.len(), err, core::str::from_utf8(buffer));
+                log::warn!(
+                    "Failed to parse telegram ({} bytes): {:?}, buffer: {:?}",
+                    buffer.len(),
+                    err,
+                    core::str::from_utf8(buffer)
+                );
                 dsmr_uart.clear();
             }
         }
