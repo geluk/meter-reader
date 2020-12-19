@@ -33,6 +33,7 @@ use crate::{
 const LOG_LEVEL: log::LevelFilter = log::LevelFilter::Debug;
 const SPI_CLOCK_HZ: u32 = 16_000_000;
 const DSMR_42_BAUD: u32 = 115200;
+const DSMR_INVERTED: bool = false;
 const ETH_ADDR: [u8; 6] = [0xEE, 0x00, 0x00, 0x0E, 0x4C, 0xA2];
 
 #[cortex_m_rt::entry]
@@ -84,13 +85,14 @@ fn main() -> ! {
     // Set SPI pin assignments.
     let mut spi4 = spi4_builder.build(pins.p11, pins.p12, pins.p13);
     // SET UART pin assignments.
-    let uart = uarts
+    let mut uart = uarts
         .uart2
         .init(pins.p14, pins.p15, DSMR_42_BAUD)
         .unwrap_or_else(|err| {
             log::error!("Failed to configure UART: {:?}", err);
             panic!();
         });
+    uart.set_rx_inversion(DSMR_INVERTED);
 
     // Set SPI clock speed.
     match spi4.set_clock_speed(hal::spi::ClockSpeed(SPI_CLOCK_HZ)) {
