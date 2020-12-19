@@ -16,3 +16,22 @@ The Ethernet code depends on
 [https://github.com/geluk/enc28j60](geluk/enc28j60), which I have forked from
 [https://github.com/japaric/enc28j60](japaric/enc28j60) in order to incorporate
 a few more checks and errata fixes into the driver.
+
+## Implementation notes
+
+The default configuration expects the following pin connections:
+
+|Teensy pin|Peripheral|Peripheral pin|
+|---|---|---|
+|`9`|`ENC28J60`|`Reset`|
+|`10`|`ENC28J60`|`Chip select`|
+|`11`|`ENC28J60`|`MOSI`|
+|`12`|`ENC28J60`|`MISO`|
+|`13`|`ENC28J60`|`SCK`|
+|`15`|`Meter`|`TX` (uninverted!)|
+
+Note that by default, DSMR 4.2 produces inverted UART signals.
+The default configuration of this repository expects a hardware inverter
+to be connected between the meter and the Teensy, but it is also possible to
+use the Teensy's own inverter. To enable this, set `DSMR_INVERTED` to `true` in
+`meter-reader/main.rs`.
