@@ -6,6 +6,9 @@ use smoltcp::{
 
 use crate::random::Random;
 
+const RX_BUF_SZ: usize = 4096;
+const TX_BUF_SZ: usize = 4096;
+
 pub trait TcpClient {
     fn set_socket_handle(&mut self, handle: SocketHandle);
     fn get_socket_handle(&mut self) -> SocketHandle;
@@ -19,15 +22,15 @@ pub trait TcpClient {
 }
 
 pub struct TcpClientStore {
-    pub rx_buffer: [u8; 4096],
-    pub tx_buffer: [u8; 4096],
+    pub rx_buffer: [u8; RX_BUF_SZ],
+    pub tx_buffer: [u8; TX_BUF_SZ],
 }
 
 impl TcpClientStore {
     pub fn new() -> Self {
         TcpClientStore {
-            rx_buffer: [0; 4096],
-            tx_buffer: [0; 4096],
+            rx_buffer: [0; RX_BUF_SZ],
+            tx_buffer: [0; TX_BUF_SZ],
         }
     }
 }

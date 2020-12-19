@@ -16,28 +16,37 @@ use super::client::{TcpClient, TcpClientStore};
 const EPHEMERAL_PORT_START: u16 = 49152;
 const EPHEMERAL_PORT_COUNT: u16 = 16383;
 
+const DHCP_RX_BUF_SZ: usize = 1024;
+const DHCP_TX_BUF_SZ: usize = 1024;
+const DHCP_RX_MET_SZ: usize = 4;
+const DHCP_TX_MET_SZ: usize = 4;
+
+const NEIGH_CACHE_SZ: usize = 64;
+
+const SOCKET_STORE_SZ: usize = 2;
+
 pub struct BackingStore<'store> {
-    dhcp_rx_buffer: [u8; 1024],
-    dhcp_tx_buffer: [u8; 1024],
-    dhcp_tx_metadata: [RawPacketMetadata; 4],
-    dhcp_rx_metadata: [RawPacketMetadata; 4],
-    neigh_cache: [Option<(IpAddress, Neighbor)>; 64],
+    dhcp_rx_buffer: [u8; DHCP_RX_BUF_SZ],
+    dhcp_tx_buffer: [u8; DHCP_TX_BUF_SZ],
+    dhcp_rx_metadata: [RawPacketMetadata; DHCP_RX_MET_SZ],
+    dhcp_tx_metadata: [RawPacketMetadata; DHCP_TX_MET_SZ],
+    neigh_cache: [Option<(IpAddress, Neighbor)>; NEIGH_CACHE_SZ],
     address_store: [IpCidr; 1],
     route_store: [Option<(IpCidr, Route)>; 1],
-    socket_store: [Option<SocketSetItem<'store, 'store>>; 2],
+    socket_store: [Option<SocketSetItem<'store, 'store>>; SOCKET_STORE_SZ],
 }
 
 impl<'store> BackingStore<'store> {
     pub fn new() -> Self {
         BackingStore {
-            dhcp_rx_buffer: [0; 1024],
-            dhcp_tx_buffer: [0; 1024],
-            dhcp_tx_metadata: [RawPacketMetadata::EMPTY; 4],
-            dhcp_rx_metadata: [RawPacketMetadata::EMPTY; 4],
-            neigh_cache: [None; 64],
+            dhcp_rx_buffer: [0; DHCP_RX_BUF_SZ],
+            dhcp_tx_buffer: [0; DHCP_TX_BUF_SZ],
+            dhcp_rx_metadata: [RawPacketMetadata::EMPTY; DHCP_RX_MET_SZ],
+            dhcp_tx_metadata: [RawPacketMetadata::EMPTY; DHCP_TX_MET_SZ],
+            neigh_cache: [None; NEIGH_CACHE_SZ],
             address_store: [IpCidr::new(Ipv4Address::UNSPECIFIED.into(), 0)],
             route_store: [None; 1],
-            socket_store: [None, None],
+            socket_store: Default::default(),
         }
     }
 }
