@@ -250,6 +250,24 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0ee1c47aaa256ecabcaea351eae4a9b01ef39ed810004e298d2511ed284b1525"
 
 [[package]]
+name = "meter-reader"
+version = "0.1.0"
+dependencies = [
+ "arrayvec",
+ "cortex-m",
+ "cortex-m-rt",
+ "dsmr42",
+ "embedded-hal",
+ "embedded-mqtt",
+ "enc28j60",
+ "log",
+ "nb 0.1.3",
+ "nom",
+ "smoltcp",
+ "teensy4-bsp",
+]
+
+[[package]]
 name = "nb"
 version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -348,24 +366,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "unicode-xid",
-]
-
-[[package]]
-name = "teensy-experiments"
-version = "0.1.0"
-dependencies = [
- "arrayvec",
- "cortex-m",
- "cortex-m-rt",
- "dsmr42",
- "embedded-hal",
- "embedded-mqtt",
- "enc28j60",
- "log",
- "nb 1.0.0",
- "nom",
- "smoltcp",
- "teensy4-bsp",
 ]
 
 [[package]]

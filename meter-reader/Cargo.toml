@@ -1,5 +1,5 @@
 [package]
-name = "teensy-experiments"
+name = "meter-reader"
 version = "0.1.0"
 authors = ["Johan <johan@geluk.io>"]
 edition = "2018"
@@ -38,8 +38,3 @@ features = []
 
 [dependencies.dsmr42]
 path = "../dsmr42"
-
-# Don't optimize build dependencies, like proc macros.
-# Helps with build times.
-[profile.release.build-override]
-opt-level = 0
