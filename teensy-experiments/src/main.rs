@@ -7,7 +7,7 @@ mod macros;
 mod mqtt;
 mod network;
 mod random;
-mod dma_uart;
+mod uart;
 
 use core::panic::PanicInfo;
 use core::sync::atomic::{self, Ordering};
@@ -41,7 +41,7 @@ use teensy4_bsp::{
     usb::LoggingConfig,
     SysTick,
 };
-use dma_uart::DmaUart;
+use uart::DsmrUart;
 
 const LOG_LEVEL: log::LevelFilter = log::LevelFilter::Debug;
 const SPI_BAUD_RATE_HZ: u32 = 16_000_000;
@@ -115,7 +115,7 @@ fn main() -> ! {
         }
     }
 
-    let mut dma_uart = DmaUart::new(uart, per.dma, &mut per.ccm.handle);
+    let mut dsmr_uart = DsmrUart::new(uart);
 
     let ncs = make_output_pin(pins.p10);
     let rst = make_output_pin(pins.p9);
@@ -139,10 +139,10 @@ fn main() -> ! {
 
     log::info!("Entering main loop");
     loop {
-        dma_uart.poll();
+        dsmr_uart.poll();
         network.poll(&mut clock);
         network.poll_client(&mut random, &mut client);
-        let (read, res) = dsmr42::parse(&dma_uart.get_buffer());
+        let (read, res) = dsmr42::parse(&dsmr_uart.get_buffer());
         match res {
             Ok(telegram) => {
                 log::info!("Got new telegram: {}", telegram.device_id);
@@ -151,13 +151,13 @@ fn main() -> ! {
             Err(dsmr42::TelegramParseError::Incomplete) => {
             }
             Err(err) => {
-                let buffer = dma_uart.get_buffer();
+                let buffer = dsmr_uart.get_buffer();
                 log::warn!("Failed to parse telegram ({} bytes): {:?}, buffer: {:?}", buffer.len(), err, core::str::from_utf8(buffer));
-                dma_uart.clear();
+                dsmr_uart.clear();
             }
         }
         if read > 0 {
-            dma_uart.consume(read);
+            dsmr_uart.consume(read);
         }
     }
 
