@@ -1,5 +1,5 @@
 use arrayvec::ArrayString;
-use core::fmt::{Debug, Display, Write};
+use core::fmt::{Debug, Display};
 use dsmr42::Telegram;
 use embedded_mqtt::{
     codec::{Decodable, Encodable},
@@ -32,6 +32,8 @@ const REMOTE_PORT: u16 = 1883;
 
 const BACKOFF_CAP: u32 = 400000;
 const INITIAL_BACKOFF: u32 = 1000;
+
+const USAGE_TOPIC: &str = "smart_meter/usage";
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 enum MqttState {
@@ -172,13 +174,11 @@ impl MqttClient {
     }
 
     fn send_telegram(&mut self, socket: SocketRef<TcpSocket>, telegram: Telegram) {
-        let mut topic = ArrayString::<[_; 64]>::new();
         let mut content = ArrayString::<[_; 512]>::new();
 
-        write!(&mut topic, "smart_meter/{}", telegram.device_id);
         telegram.serialize(&mut content);
 
-        self.send_pub(socket, topic.as_str(), content.as_bytes());
+        self.send_pub(socket, USAGE_TOPIC, content.as_bytes());
     }
 
     fn send_pub(&mut self, socket: SocketRef<TcpSocket>, topic: &str, payload: &[u8]) {
