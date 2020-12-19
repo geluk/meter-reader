@@ -2,8 +2,6 @@
 #![no_main]
 
 mod clock;
-#[macro_use]
-mod macros;
 mod mqtt;
 mod network;
 mod random;
