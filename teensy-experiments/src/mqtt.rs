@@ -87,6 +87,7 @@ impl TcpClient for MqttClient {
             );
         } else if !socket.is_active() && self.connected {
             self.connected = false;
+            self.mqtt_state = MqttState::Unconnected;
             log::debug!(
                 "Disconnected {} -> {}",
                 socket.local_endpoint(),
