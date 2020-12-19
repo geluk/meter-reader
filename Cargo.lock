@@ -124,8 +124,7 @@ dependencies = [
 [[package]]
 name = "embedded-mqtt"
 version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f71c71773cd2b576767d4ced67c6ebba53699f2d00ccf5e038f902e3f978ddd9"
+source = "git+https://github.com/Nauxuron/embedded-mqtt.git?branch=master#9a8f9c319373969eb5651c4a44cef251f643efc9"
 dependencies = [
  "bitfield",
  "byteorder",

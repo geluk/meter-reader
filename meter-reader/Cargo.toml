@@ -9,7 +9,6 @@ cortex-m = "0.6.2"
 cortex-m-rt = "0.6.13"
 embedded-hal = "0.2.3"
 log = "0.4.11"
-embedded-mqtt = "0.1.0"
 nb = "*"
 
 [dependencies.smoltcp]
@@ -35,6 +34,10 @@ default-features = false
 version = "*"
 default-features = false
 features = []
+
+[dependencies.embedded-mqtt]
+git = "https://github.com/Nauxuron/embedded-mqtt.git"
+branch = "master"
 
 [dependencies.dsmr42]
 path = "../dsmr42"
