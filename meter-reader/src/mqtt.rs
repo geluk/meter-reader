@@ -33,6 +33,7 @@ const REMOTE_PORT: u16 = 1883;
 const BACKOFF_CAP: u32 = 400000;
 const INITIAL_BACKOFF: u32 = 1000;
 
+const STATUS_TOPIC: &str = "smart_meter/status";
 const USAGE_TOPIC: &str = "smart_meter/usage";
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
@@ -40,6 +41,7 @@ enum MqttState {
     Unconnected,
     Connecting,
     Connected,
+    Ready,
     Invalid,
 }
 
@@ -124,7 +126,8 @@ impl TcpClient for MqttClient {
         if socket.can_send() {
             match self.mqtt_state {
                 MqttState::Unconnected => self.connect_mqtt(socket),
-                MqttState::Connected => {
+                MqttState::Connected => self.send_status(socket),
+                MqttState::Ready => {
                     if let Some(telegram) = self.queued_telegram.take() {
                         self.send_telegram(socket, telegram);
                     }
@@ -152,6 +155,8 @@ impl MqttClient {
         self.mqtt_state = MqttState::Connecting;
         let mut flags = Flags::default();
         flags.set_clean_session(true);
+        flags.set_has_will_flag(true);
+        flags.set_will_retain(true);
         let keep_alive = 10;
         let header = variable_header::connect::Connect::new(
             Protocol::MQTT,
@@ -159,7 +164,8 @@ impl MqttClient {
             flags,
             keep_alive,
         );
-        let payload = payload::connect::Connect::new("smart-meter-reader", None, None, None);
+        let will = payload::connect::Will::new(STATUS_TOPIC, b"offline");
+        let payload = payload::connect::Connect::new("smart-meter-reader", Some(will), None, None);
         match Packet::connect(header, payload) {
             Ok(packet) => match self.send_packet(socket, packet) {
                 Ok(_) => log::debug!("Sent MQTT connect request"),
@@ -167,6 +173,12 @@ impl MqttClient {
             },
             Err(err) => log::warn!("Failed to create connect packet: {}", err),
         }
+    }
+
+    pub fn send_status(&mut self, socket: SocketRef<TcpSocket>) {
+        self.send_pub(socket, STATUS_TOPIC, b"online");
+        log::debug!("MQTT State: Connected -> Ready");
+        self.mqtt_state = MqttState::Ready;
     }
 
     pub fn queue_telegram(&mut self, telegram: Telegram) {
