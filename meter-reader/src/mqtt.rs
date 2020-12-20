@@ -35,6 +35,8 @@ const INITIAL_BACKOFF: u32 = 1000;
 
 const KEEPALIVE: u16 = 30;
 
+const CLIENT_ID: &str = "smart-meter-reader";
+
 const STATUS_TOPIC: &str = "smart_meter/status";
 const USAGE_TOPIC: &str = "smart_meter/usage";
 
@@ -166,7 +168,7 @@ impl MqttClient {
             KEEPALIVE,
         );
         let will = payload::connect::Will::new(STATUS_TOPIC, b"offline");
-        let payload = payload::connect::Connect::new("smart-meter-reader", Some(will), None, None);
+        let payload = payload::connect::Connect::new(CLIENT_ID, Some(will), None, None);
         match Packet::connect(header, payload) {
             Ok(packet) => match self.send_packet(socket, packet) {
                 Ok(_) => log::debug!("Sent MQTT connect request"),
