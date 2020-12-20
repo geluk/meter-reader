@@ -33,6 +33,8 @@ const REMOTE_PORT: u16 = 1883;
 const BACKOFF_CAP: u32 = 400000;
 const INITIAL_BACKOFF: u32 = 1000;
 
+const KEEPALIVE: u16 = 30;
+
 const STATUS_TOPIC: &str = "smart_meter/status";
 const USAGE_TOPIC: &str = "smart_meter/usage";
 
@@ -157,12 +159,11 @@ impl MqttClient {
         flags.set_clean_session(true);
         flags.set_has_will_flag(true);
         flags.set_will_retain(true);
-        let keep_alive = 10;
         let header = variable_header::connect::Connect::new(
             Protocol::MQTT,
             Level::Level3_1_1,
             flags,
-            keep_alive,
+            KEEPALIVE,
         );
         let will = payload::connect::Will::new(STATUS_TOPIC, b"offline");
         let payload = payload::connect::Connect::new("smart-meter-reader", Some(will), None, None);
