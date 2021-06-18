@@ -36,7 +36,7 @@ default-features = false
 features = []
 
 [dependencies.embedded-mqtt]
-git = "https://github.com/Nauxuron/embedded-mqtt.git"
+git = "https://github.com/wfdewith/embedded-mqtt.git"
 branch = "master"
 
 [dependencies.dsmr42]
