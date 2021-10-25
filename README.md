@@ -13,8 +13,8 @@ specific to DSMR 4.2 and my own  meter. It can easily be adapted to other meters
 and DSMR versions as well.
 
 The Ethernet code depends on
-[https://github.com/geluk/enc28j60](geluk/enc28j60), which I have forked from
-[https://github.com/japaric/enc28j60](japaric/enc28j60) in order to incorporate
+[geluk/enc28j60](https://github.com/geluk/enc28j60), which I have forked from
+[japaric/enc28j60](https://github.com/japaric/enc28j60) in order to incorporate
 a few more checks and errata fixes into the driver.
 
 ## Implementation notes
