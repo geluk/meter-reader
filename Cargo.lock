@@ -263,7 +263,6 @@ dependencies = [
  "enc28j60",
  "log",
  "nb 1.0.0",
- "nom",
  "smoltcp",
  "teensy4-bsp",
 ]
