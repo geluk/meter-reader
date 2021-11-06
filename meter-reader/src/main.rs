@@ -42,11 +42,12 @@ fn main() -> ! {
     // Take control of the peripherals.
     let mut per = teensy4_bsp::Peripherals::take().unwrap();
     let core_per = cortex_m::Peripherals::take().unwrap();
+    let mut systick = SysTick::new(core_per.SYST);
 
     // Enable serial USB logging.
-    let mut systick = SysTick::new(core_per.SYST);
+    let usb = hal::ral::usb::USB1::take().unwrap();
     let _ = usb::init(
-        &systick,
+        usb,
         LoggingConfig {
             max_level: LOG_LEVEL,
             filters: &[],
