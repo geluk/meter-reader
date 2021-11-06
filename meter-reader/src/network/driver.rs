@@ -190,11 +190,11 @@ pub struct Enc28j60RxToken<'a> {
 }
 
 impl<'a> phy::RxToken for Enc28j60RxToken<'a> {
-    fn consume<R, F>(mut self, _timestamp: Instant, f: F) -> smoltcp::Result<R>
+    fn consume<R, F>(self, _timestamp: Instant, f: F) -> smoltcp::Result<R>
     where
         F: FnOnce(&mut [u8]) -> smoltcp::Result<R>,
     {
-        f(&mut self.buffer)
+        f(self.buffer)
     }
 }
 

@@ -221,10 +221,10 @@ pub fn parse(input: &[u8]) -> (usize, Result<Telegram, TelegramParseError>) {
     }
 }
 
-fn telegram<'a>(
-    input: &'a str,
+fn telegram(
+    input: &str,
     mut line_buffer: ArrayVec<Line, MAX_LINES_PER_TELEGRAM>,
-) -> IResult<&'a str, Telegram> {
+) -> IResult<&str, Telegram> {
     let (input, device_id) = device_id(input)?;
 
     let device_id = ArrayString::from(device_id).map_err(|_| {
@@ -276,7 +276,7 @@ fn crc(input: &str) -> IResult<&str, u16> {
     let (next_input, crc) = delimited(tag("!"), hex_digit1, crlf)(input)?;
 
     let mut crc_hex = [0u8; 2];
-    decode_hex(&crc, &mut crc_hex[..]).map_err(nom::Err::Error)?;
+    decode_hex(crc, &mut crc_hex[..]).map_err(nom::Err::Error)?;
     let crc = ((crc_hex[0] as u16) << 8) | crc_hex[1] as u16;
     Ok((next_input, crc))
 }

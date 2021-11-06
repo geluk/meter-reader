@@ -132,7 +132,7 @@ fn main() -> ! {
         dsmr_uart.poll();
         network.poll(&mut clock);
         network.poll_client(&mut random, &mut client);
-        let (read, res) = dsmr42::parse(&dsmr_uart.get_buffer());
+        let (read, res) = dsmr42::parse(dsmr_uart.get_buffer());
         match res {
             Ok(telegram) => {
                 log::info!("Got new telegram: {}", telegram.device_id);
