@@ -33,7 +33,7 @@ pub struct BackingStore<'store> {
     neigh_cache: [Option<(IpAddress, Neighbor)>; NEIGH_CACHE_SZ],
     address_store: [IpCidr; 1],
     route_store: [Option<(IpCidr, Route)>; 1],
-    socket_store: [Option<SocketSetItem<'store, 'store>>; SOCKET_STORE_SZ],
+    socket_store: [Option<SocketSetItem<'store>>; SOCKET_STORE_SZ],
 }
 
 impl<'store> BackingStore<'store> {
@@ -52,9 +52,9 @@ impl<'store> BackingStore<'store> {
 }
 
 pub struct NetworkStack<'store, D: Driver> {
-    interface: EthernetInterface<'store, 'store, 'store, Enc28j60Phy<D>>,
+    interface: EthernetInterface<'store, Enc28j60Phy<D>>,
     dhcp_client: Dhcpv4Client,
-    sockets: SocketSet<'store, 'store, 'store>,
+    sockets: SocketSet<'store>,
 }
 
 impl<'store, D: Driver> NetworkStack<'store, D> {
