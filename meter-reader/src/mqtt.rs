@@ -189,7 +189,7 @@ impl MqttClient {
     }
 
     fn send_telegram(&mut self, socket: SocketRef<TcpSocket>, telegram: Telegram) {
-        let mut content = ArrayString::<[_; 512]>::new();
+        let mut content = ArrayString::<512>::new();
 
         telegram.serialize(&mut content);
 

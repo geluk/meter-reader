@@ -11,7 +11,7 @@ version = "6.0"
 default-features = false
 
 [dependencies.arrayvec]
-version = "0.5"
+version = "0.7.2"
 default-features = false
 
 [dependencies.hex]

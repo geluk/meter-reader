@@ -26,8 +26,8 @@ const MAX_LINES_PER_TELEGRAM: usize = 32;
 
 #[derive(Debug)]
 pub struct Telegram {
-    pub device_id: ArrayString<[u8; 32]>,
-    pub lines: ArrayVec<[Line; MAX_LINES_PER_TELEGRAM]>,
+    pub device_id: ArrayString<32>,
+    pub lines: ArrayVec<Line, MAX_LINES_PER_TELEGRAM>,
     pub crc: u16,
 }
 
@@ -101,7 +101,7 @@ impl Telegram {
 #[derive(Debug)]
 pub struct RawLine<'a> {
     obis: [u8; 6],
-    cosem: ArrayVec<[&'a str; MAX_COSEM_PER_LINE]>,
+    cosem: ArrayVec<&'a str, MAX_COSEM_PER_LINE>,
 }
 
 #[derive(Debug)]
@@ -195,7 +195,7 @@ pub fn parse(input: &[u8]) -> (usize, Result<Telegram, TelegramParseError>) {
             );
         }
     };
-    let line_buffer = ArrayVec::<[Line; MAX_LINES_PER_TELEGRAM]>::new();
+    let line_buffer = ArrayVec::<Line, MAX_LINES_PER_TELEGRAM>::new();
     match telegram(input_str, line_buffer) {
         Ok((remaining, telegram)) => {
             let telegram_length = input_str.len() - remaining.len();
@@ -223,7 +223,7 @@ pub fn parse(input: &[u8]) -> (usize, Result<Telegram, TelegramParseError>) {
 
 fn telegram<'a>(
     input: &'a str,
-    mut line_buffer: ArrayVec<[Line; MAX_LINES_PER_TELEGRAM]>,
+    mut line_buffer: ArrayVec<Line, MAX_LINES_PER_TELEGRAM>,
 ) -> IResult<&'a str, Telegram> {
     let (input, device_id) = device_id(input)?;
 
@@ -368,7 +368,7 @@ fn timestamp(input: &str) -> IResult<&str, Timestamp> {
 fn raw_line(input: &str) -> IResult<&str, RawLine> {
     let (mut input, obis) = obis_code(input)?;
 
-    let mut cosem_arr = ArrayVec::<[&str; MAX_COSEM_PER_LINE]>::new();
+    let mut cosem_arr = ArrayVec::<&str, MAX_COSEM_PER_LINE>::new();
 
     loop {
         let res = cosem::<nom::error::Error<_>>()(input);
@@ -625,7 +625,7 @@ mod tests {
 
     #[test]
     fn simple_telegram_parses() {
-        let mut line_buffer = ArrayVec::<[_; 32]>::new();
+        let mut line_buffer = ArrayVec::<_, 32>::new();
         let res: TestResult<Telegram> = telegram(
             "/XMX1000\r\n\r\n1-3:0.2.8(42)\r\n0-0:1.0.0(200208153506W)\r\n!FFFF\r\n",
             line_buffer,
